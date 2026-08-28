@@ -112,8 +112,13 @@ uv run python ../sample-data/tools/verify_gateway_mcp.py "$GATEWAY_URL" ../acces
 ```python
 # lab1/index.py
 import json
+import logging
 import os
 import re
+
+# pdfplumber(pdfminer)가 Chrome 생성 PDF의 FontBBox를 읽으며 쏟아내는 경고를 억제합니다.
+# 추출 동작에는 무해하지만, 없으면 콘솔이 경고로 뒤덮여 결과를 보기 어렵습니다.
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
 import boto3
 import pdfplumber
@@ -391,6 +396,7 @@ aws lambda update-function-code \
 | BMI 검증이 항상 실패 | 신장 단위(cm↔m) 혼동 | 신장을 100 으로 나눠 m 로 변환했는지 확인 |
 | 정당한 사용자가 `BLOCK` | 완전일치로 판정 중 | 편집거리 1 이하는 `WARN` 이어야 함(TODO ⑥) |
 | `pip install pdfplumber` 가 x86 휠 설치 | 플랫폼 미지정 | `--platform manylinux2014_aarch64 --only-binary=:all:` 필수(Lambda arm64) |
+| `Could not get FontBBox` 경고 폭주 | pdfminer 가 PDF 폰트 메타 읽으며 내는 경고 | 무해함. `logging.getLogger("pdfminer").setLevel(logging.ERROR)` 로 억제(코드 상단에 포함) |
 
 ---
 
