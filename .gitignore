@@ -1,0 +1,45 @@
+# ── OS / 에디터 ──
+.DS_Store
+.idea/
+*.swp
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# ── 빌드 산출물 ──
+# sample-data/html/ 은 ground-truth JSON에서 재생성 가능한 중간 산출물이므로 추적하지 않음
+sample-data/html/
+build/
+dist/
+*.egg-info/
+
+# ── 로컬 설정 / 자격증명 ──
+.env
+.env.*
+secrets.toml
+.streamlit/secrets.toml
+*.pem
+
+# ── 실습 중 생성되는 산출물 ──
+outputs/
+*.report.json
+evaluation_report.json
+
+# ── 제작자 전용 (수강생 배포 저장소에서 제외) ──
+# STATUS.md 는 제작자·에이전트용 인수인계 문서, .kiro/ 는 교재 작성 규칙(steering) 등 내부 설정
+STATUS.md
+.kiro/
+
+# ──────────────────────────────────────────────
+# 추적 대상 (참고 — 아래 항목은 의도적으로 커밋합니다)
+#   sample-data/ground-truth/*.json  결과지 정답 데이터 (단일 원본)
+#   sample-data/pdf/*.pdf            참가자 배포용 결과지 PDF
+#   sample-data/tools/*              PDF 재생성/검증 스크립트
+#   infra/*                          사전 프로비저닝 템플릿
+#   content/**/*.md                  Lab 교재
+# ──────────────────────────────────────────────

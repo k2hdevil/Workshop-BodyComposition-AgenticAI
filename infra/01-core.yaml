@@ -1,0 +1,381 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  체성분 분석 Agentic AI Workshop — 핵심 인프라 (S3 / Cognito / IAM)
+
+  참가자가 직접 배포합니다. AgentCore 리소스(Memory, Guardrail, Runtime)는
+  실습에서 직접 만들기 때문에 이 템플릿에 포함하지 않습니다.
+
+  배포:
+    aws cloudformation deploy \
+      --template-file infra/01-core.yaml \
+      --stack-name bca-workshop-core \
+      --capabilities CAPABILITY_NAMED_IAM \
+      --region us-east-1
+
+  삭제 전 버킷 비우기:
+    aws s3 rm s3://<DataBucketName> --recursive
+
+Metadata:
+  # cfn-lint 1.x 는 신규 서비스인 bedrock-agentcore 의 IAM 액션 접두사를 아직 모릅니다.
+  # W3037 은 오탐이므로 무시합니다. 액션명은 AgentCore 공식 문서 기준입니다.
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W3037
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: "기본 설정" }
+        Parameters: [ProjectName]
+      - Label: { default: "프론트엔드 콜백 URL" }
+        Parameters: [LocalCallbackUrl, HostedCallbackUrl]
+    ParameterLabels:
+      ProjectName: { default: "프로젝트 접두사" }
+      LocalCallbackUrl: { default: "로컬 개발용 콜백 URL" }
+      HostedCallbackUrl: { default: "배포 후 콜백 URL (나중에 수정)" }
+
+# ──────────────────────────────────────────────
+Parameters:
+
+  ProjectName:
+    Type: String
+    Default: bca-workshop
+    AllowedPattern: "^[a-z][a-z0-9-]{2,20}$"
+    Description: >
+      리소스 이름 접두사. 소문자/숫자/하이픈만 사용합니다.
+
+  LocalCallbackUrl:
+    Type: String
+    Default: http://localhost:8501/oauth2callback
+    Description: >
+      Streamlit 로컬 실행용 OIDC 콜백. 경로가 /oauth2callback 으로 끝나야 합니다
+      (Streamlit st.login() 요구사항).
+
+  HostedCallbackUrl:
+    Type: String
+    Default: https://example.ecs.us-east-1.on.aws/oauth2callback
+    Description: >
+      ECS Express Mode 배포 후의 콜백 URL. 배포 전에는 실제 도메인을 모르므로
+      Lab 6에서 이 값을 실제 URL(형식: https://<서비스명>.ecs.us-east-1.on.aws)로
+      바꿔 스택을 업데이트합니다.
+
+# ──────────────────────────────────────────────
+Resources:
+
+  # ── 결과지 PDF와 산출물 저장소 ──────────────
+  DataBucket:
+    Type: AWS::S3::Bucket
+    # 워크샵 종료 후 남은 객체가 있으면 스택 삭제가 실패합니다.
+    # 99_cleanup.md 에서 버킷을 먼저 비우도록 안내합니다.
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "${ProjectName}-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          # 워크샵 데이터는 오래 남을 이유가 없습니다. 정리를 잊어도 7일 후 만료됩니다.
+          - Id: expire-workshop-objects
+            Status: Enabled
+            ExpirationInDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # HTTPS 아닌 요청을 거부합니다 (개인 체성분 데이터를 다루므로)
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "${DataBucket.Arn}"
+              - !Sub "${DataBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  # ── Cognito — 사용자 인증 ────────────────────
+  # 이 앱은 "본인이 본인 결과지를 올리는" 구조이므로 로그인이 필요합니다.
+  # name 속성을 필수로 두는 이유: 결과지에서 추출한 이름과 대조해
+  # 타인의 결과지 업로드를 걸러내는 데 사용합니다 (표시용이 아니라 검증용).
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-users"
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      AdminCreateUserConfig:
+        # 참가자가 스스로 가입할 수 있게 둡니다. 워크샵 계정이므로 허용 범위입니다.
+        AllowAdminCreateUserOnly: false
+      UserPoolTags:
+        Project: !Ref ProjectName
+
+  # st.login() 은 authorization code 흐름과 client secret 을 사용합니다.
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${ProjectName}-streamlit"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: true          # st.login() 에 client_secret 필요
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs:
+        - !Ref LocalCallbackUrl
+        - !Ref HostedCallbackUrl
+      LogoutURLs:
+        - !Ref LocalCallbackUrl
+        - !Ref HostedCallbackUrl
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        # Lab 1~5 는 프론트엔드가 없는 상태에서 Gateway 를 호출해야 합니다.
+        # SRP 만 허용하면 CLI 로 토큰을 얻을 수 없어(SRP 구현 필요) 실습이 막힙니다.
+        # admin-initiate-auth 로 한 줄에 ID 토큰을 받기 위해 이 흐름을 켭니다.
+        # 프로덕션에서는 켜지 마세요 — 관리자 권한으로 비밀번호 인증이 가능해집니다.
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      PreventUserExistenceErrors: ENABLED
+      # ID 토큰을 Runtime 인바운드 인증에 넘기므로 유효시간을 넉넉히 둡니다.
+      IdTokenValidity: 8
+      AccessTokenValidity: 8
+      RefreshTokenValidity: 1
+      TokenValidityUnits:
+        IdToken: hours
+        AccessToken: hours
+        RefreshToken: days
+
+  # OIDC discovery 문서의 authorization_endpoint 가 이 도메인을 가리킵니다.
+  # 도메인이 없으면 st.login() 이 동작하지 않습니다.
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Sub "${ProjectName}-${AWS::AccountId}"
+
+  # ── IAM — AgentCore Runtime 실행 역할 ─────────
+  # 최소 권한으로 구성합니다. AdministratorAccess 를 쓰지 않습니다.
+  # Memory 와 Guardrail 은 참가자가 실습에서 만들기 때문에 스택 생성 시점에
+  # ARN 을 알 수 없습니다. 그래서 계정/리전으로 범위를 좁힌 와일드카드를 씁니다.
+  AgentRuntimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-agent-runtime-role"
+      # IAM Description 은 ASCII/Latin-1 만 허용합니다 (한글을 쓰면 배포가 실패합니다).
+      # 설명이 필요한 부분은 아래 주석과 infra/README.md 에 한국어로 남겨두었습니다.
+      Description: AgentCore Runtime execution role for the body composition workshop
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*"
+      Policies:
+        - PolicyName: bedrock-model-invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # 글로벌 추론 프로파일은 여러 리전으로 라우팅되므로
+              # foundation-model 리소스의 리전을 고정할 수 없습니다.
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*"
+                  - !Sub "arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*"
+              # Lab 4 에서 참가자가 만드는 Guardrail 적용
+              - Effect: Allow
+                Action: bedrock:ApplyGuardrail
+                Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*"
+
+        - PolicyName: agentcore-memory
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Lab 3 추이 분석용. 측정 이력 저장/조회에 필요한 동작만 부여합니다.
+              - Effect: Allow
+                Action:
+                  - bedrock-agentcore:CreateEvent
+                  - bedrock-agentcore:ListEvents
+                  - bedrock-agentcore:GetEvent
+                  - bedrock-agentcore:RetrieveMemoryRecords
+                  - bedrock-agentcore:GetMemoryRecord
+                  - bedrock-agentcore:ListMemoryRecords
+                Resource: !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:memory/*"
+
+        - PolicyName: s3-data-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${DataBucket.Arn}/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt DataBucket.Arn
+
+        - PolicyName: observability
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Lab 5 Observability. ADOT 자동 계측이 X-Ray 와 CloudWatch 로 보냅니다.
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: "*"     # X-Ray 쓰기 동작은 리소스 수준 권한을 지원하지 않습니다
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: bedrock-agentcore
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ── IAM — AgentCore Memory 실행 역할 ──────────
+  # Memory 가 장기 기억 추출/통합을 위해 Bedrock 모델을 호출할 때 사용합니다.
+  # Lab 3 에서 create_memory 호출 시 이 역할 ARN 을 넘깁니다.
+  MemoryExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-memory-execution-role"
+      Description: AgentCore Memory extraction and consolidation execution role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: bedrock-model-invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*"
+                  - !Sub "arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+# ──────────────────────────────────────────────
+Outputs:
+
+  DataBucketName:
+    Description: 결과지 PDF 업로드 및 산출물 저장 버킷
+    Value: !Ref DataBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-DataBucketName"
+
+  UploadSamplesCommand:
+    Description: 샘플 결과지 4건을 버킷에 올리는 명령 (저장소 루트에서 실행)
+    Value: !Sub "aws s3 cp sample-data/pdf/ s3://${DataBucket}/measurements/ --recursive --region ${AWS::Region}"
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+
+  UserPoolClientId:
+    Description: Streamlit 앱용 App Client ID
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+
+  GetClientSecretCommand:
+    Description: >
+      client secret 은 CloudFormation 출력으로 노출되지 않습니다.
+      아래 명령으로 조회해 Streamlit secrets.toml 에 넣으세요.
+    Value: !Sub >-
+      aws cognito-idp describe-user-pool-client
+      --user-pool-id ${UserPool}
+      --client-id ${UserPoolClient}
+      --region ${AWS::Region}
+      --query 'UserPoolClient.ClientSecret' --output text
+
+  OIDCDiscoveryUrl:
+    Description: Streamlit st.login() 의 server_metadata_url 값
+    Value: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}/.well-known/openid-configuration"
+
+  CognitoHostedUiDomain:
+    Description: Cognito 호스팅 UI 도메인 (OIDC authorization_endpoint 의 기반)
+    Value: !Sub "https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+
+  AgentRuntimeRoleArn:
+    Description: AgentCore Runtime 생성 시 roleArn 으로 사용
+    Value: !GetAtt AgentRuntimeRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AgentRuntimeRoleArn"
+
+  MemoryExecutionRoleArn:
+    Description: AgentCore Memory 생성 시 memoryExecutionRoleArn 으로 사용
+    Value: !GetAtt MemoryExecutionRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-MemoryExecutionRoleArn"
+
+  Region:
+    Description: 실습 리전 (전 실습이 이 리전 하나를 사용합니다)
+    Value: !Ref AWS::Region

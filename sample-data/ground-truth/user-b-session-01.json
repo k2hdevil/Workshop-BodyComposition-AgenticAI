@@ -1,0 +1,89 @@
+{
+  "document_id": "user-b-session-01",
+  "synthetic": true,
+  "case_label": "저체중 30대 여성 · 1회차 (다른 사용자 / D자형 함정 케이스)",
+  "source_format": "digital_export",
+  "source_note": "user-a와 다른 사용자입니다. Memory 격리와 본인 확인 로직을 검증하는 데 사용합니다.",
+  "subject": {
+    "subject_id": "user-b",
+    "name": "박지은",
+    "age": 32,
+    "sex": "F",
+    "height_cm": 163.2
+  },
+  "measurement": {
+    "session_seq": 1,
+    "measured_at": "2026-08-18T14:07:00+09:00",
+    "device_model": "BodyScan Pro 970",
+    "method": "8점 접촉식 전극 / 다주파수 생체전기저항 분석"
+  },
+  "reference": {
+    "standard_weight_kg": 55.9,
+    "standard_weight_basis": "BMI 21 × 신장(m)²",
+    "standard_smm_kg": 22.9,
+    "standard_bfm_kg": 12.9,
+    "pbf_standard_low": 18.0,
+    "pbf_standard_high": 28.0
+  },
+  "body_composition_analysis": {
+    "total_body_water_kg": { "value": 27.7, "std_low": 28.9, "std_high": 35.3, "flag": "LOW", "label_ko": "체수분" },
+    "protein_kg":          { "value": 7.4,  "std_low": 7.7,  "std_high": 9.4,  "flag": "LOW", "label_ko": "단백질" },
+    "minerals_kg":         { "value": 2.4,  "std_low": 2.64, "std_high": 3.23, "flag": "LOW", "label_ko": "무기질" },
+    "body_fat_mass_kg":    { "value": 8.1,  "std_low": 10.1, "std_high": 15.7, "flag": "LOW", "label_ko": "체지방량" },
+    "intracellular_water_kg": 17.2,
+    "extracellular_water_kg": 10.5,
+    "ecw_tbw_ratio": { "value": 0.379, "std_low": 0.360, "std_high": 0.390, "flag": "NORMAL" },
+    "fat_free_mass_kg": 37.5,
+    "weight_kg": 45.6
+  },
+  "muscle_fat_analysis": {
+    "weight_kg":               { "value": 45.6, "std_low": 50.3, "std_high": 61.5, "percent_of_standard": 81.6, "flag": "LOW" },
+    "skeletal_muscle_mass_kg": { "value": 19.8, "std_low": 20.6, "std_high": 25.2, "percent_of_standard": 86.5, "flag": "LOW" },
+    "body_fat_mass_kg":        { "value": 8.1,  "std_low": 10.1, "std_high": 15.7, "percent_of_standard": 62.8, "flag": "LOW" },
+    "body_type": "D",
+    "body_type_label_ko": "D자형",
+    "body_type_description_ko": "그래프 형태는 D자형이나 체중·골격근량·체지방량 세 지표가 모두 표준 미달입니다. 이상적 체형이 아니라 저체중 상태의 상대적 균형이며, 절대량 부족이 핵심 소견입니다.",
+    "interpretation_caution_ko": "D자형을 '이상적'으로 단정하면 오판입니다. 표준 대비 백분율이 모두 100% 미만인지 반드시 함께 확인해야 합니다."
+  },
+  "obesity_analysis": {
+    "bmi":         { "value": 17.1, "unit": "kg/m²", "std_low": 18.5, "std_high": 24.9, "flag": "LOW", "label_ko": "체질량지수" },
+    "pbf_percent": { "value": 17.8, "unit": "%",     "std_low": 18.0, "std_high": 28.0, "flag": "LOW", "label_ko": "체지방률" },
+    "bmi_class_ko": "저체중",
+    "bmi_class_basis": "대한비만학회 기준 (18.5 미만 저체중)"
+  },
+  "segmental_lean_analysis": {
+    "right_arm": { "mass_kg": 1.86,  "std_kg": 2.10,  "percent_of_standard": 88.6, "flag": "BELOW", "label_ko": "오른팔" },
+    "left_arm":  { "mass_kg": 1.80,  "std_kg": 2.10,  "percent_of_standard": 85.7, "flag": "BELOW", "label_ko": "왼팔" },
+    "trunk":     { "mass_kg": 17.62, "std_kg": 19.80, "percent_of_standard": 89.0, "flag": "BELOW", "label_ko": "몸통" },
+    "right_leg": { "mass_kg": 5.88,  "std_kg": 6.50,  "percent_of_standard": 90.5, "flag": "BELOW", "label_ko": "오른다리" },
+    "left_leg":  { "mass_kg": 5.80,  "std_kg": 6.50,  "percent_of_standard": 89.2, "flag": "BELOW", "label_ko": "왼다리" },
+    "balance": {
+      "upper_limb_asymmetry_percent": 3.3,
+      "lower_limb_asymmetry_percent": 1.4,
+      "left_right_balance_ko": "양호",
+      "upper_lower_balance_ko": "균형 — 다만 5개 부위 전부 표준 이하로 전신 근육량 부족"
+    }
+  },
+  "additional_metrics": {
+    "waist_hip_ratio":    { "value": 0.72, "std_low": 0.75, "std_high": 0.85, "flag": "LOW",    "label_ko": "복부지방률" },
+    "visceral_fat_level": { "value": 2,    "std_low": 1,    "std_high": 9,    "flag": "NORMAL", "label_ko": "내장지방레벨" },
+    "basal_metabolic_rate_kcal": { "value": 1180, "formula": "21.6 × 제지방량(kg) + 370", "label_ko": "기초대사량" },
+    "body_composition_score": { "value": 72, "max": 100, "standard": 80, "label_ko": "체성분점수" }
+  },
+  "control_guide": {
+    "target_weight_kg": 48.7,
+    "target_weight_basis": "제지방량 증가 + 목표 체지방률 23%",
+    "weight_control_kg": 3.1,
+    "muscle_control_kg": 2.4,
+    "fat_control_kg": 0.7
+  },
+  "expected_analysis_findings": [
+    "BMI 17.1로 저체중, 체지방률 17.8%로 여성 표준(18~28%) 하단 미달 — 두 지표 모두 부족",
+    "체형은 D자형으로 판정되나 세 지표 모두 표준 100% 미만 — '이상적 체형'이 아님",
+    "체수분·단백질·무기질 전부 표준 이하로 제지방 구성 성분 자체가 부족",
+    "부위별 근육 5개 부위 모두 표준 이하 — 국소 문제가 아닌 전신 근육량 부족",
+    "무기질 2.4kg으로 표준 하단 미달 — 골밀도 관련 추가 확인 권고 대상",
+    "체중 3.1kg 증가가 목표이며 그중 2.4kg은 근육으로 확보해야 함 (지방 증가 0.7kg)",
+    "감량이 아닌 증량 시나리오이므로 운동·식단 권고 방향이 user-a와 정반대여야 함"
+  ]
+}

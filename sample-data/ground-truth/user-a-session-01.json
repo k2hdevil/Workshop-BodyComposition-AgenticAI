@@ -1,0 +1,87 @@
+{
+  "document_id": "user-a-session-01",
+  "synthetic": true,
+  "case_label": "비만 40대 남성 · 1회차 (기준선)",
+  "source_format": "scanned_image",
+  "source_note": "종이로 보관하던 과거 결과지를 스캔한 문서입니다. 텍스트 레이어가 없어 구조 파싱이 실패하고 비전 모델 폴백 경로로 처리되어야 합니다.",
+  "subject": {
+    "subject_id": "user-a",
+    "name": "김도현",
+    "age": 44,
+    "sex": "M",
+    "height_cm": 174.5
+  },
+  "measurement": {
+    "session_seq": 1,
+    "measured_at": "2026-02-14T08:41:00+09:00",
+    "device_model": "BodyScan Pro 970",
+    "method": "8점 접촉식 전극 / 다주파수 생체전기저항 분석"
+  },
+  "reference": {
+    "standard_weight_kg": 67.0,
+    "standard_weight_basis": "BMI 22 × 신장(m)²",
+    "standard_smm_kg": 31.8,
+    "standard_bfm_kg": 10.1,
+    "pbf_standard_low": 10.0,
+    "pbf_standard_high": 20.0
+  },
+  "body_composition_analysis": {
+    "total_body_water_kg": { "value": 46.6, "std_low": 38.2, "std_high": 46.7, "flag": "NORMAL", "label_ko": "체수분" },
+    "protein_kg":          { "value": 12.0, "std_low": 10.2, "std_high": 12.5, "flag": "NORMAL", "label_ko": "단백질" },
+    "minerals_kg":         { "value": 4.0,  "std_low": 3.53, "std_high": 4.31, "flag": "NORMAL", "label_ko": "무기질" },
+    "body_fat_mass_kg":    { "value": 34.0, "std_low": 6.7,  "std_high": 13.4, "flag": "HIGH",   "label_ko": "체지방량" },
+    "intracellular_water_kg": 28.7,
+    "extracellular_water_kg": 17.9,
+    "ecw_tbw_ratio": { "value": 0.384, "std_low": 0.360, "std_high": 0.390, "flag": "NORMAL" },
+    "fat_free_mass_kg": 62.6,
+    "weight_kg": 96.6
+  },
+  "muscle_fat_analysis": {
+    "weight_kg":               { "value": 96.6, "std_low": 60.3, "std_high": 73.7, "percent_of_standard": 144.2, "flag": "HIGH" },
+    "skeletal_muscle_mass_kg": { "value": 34.9, "std_low": 28.6, "std_high": 35.0, "percent_of_standard": 109.7, "flag": "NORMAL" },
+    "body_fat_mass_kg":        { "value": 34.0, "std_low": 6.7,  "std_high": 13.4, "percent_of_standard": 336.6, "flag": "HIGH" },
+    "body_type": "C",
+    "body_type_label_ko": "C자형",
+    "body_type_description_ko": "체중·체지방량에 비해 골격근량이 상대적으로 부족한 상태입니다. 체지방 감량이 필요합니다."
+  },
+  "obesity_analysis": {
+    "bmi":         { "value": 31.7, "unit": "kg/m²", "std_low": 18.5, "std_high": 24.9, "flag": "HIGH", "label_ko": "체질량지수" },
+    "pbf_percent": { "value": 35.2, "unit": "%",     "std_low": 10.0, "std_high": 20.0, "flag": "HIGH", "label_ko": "체지방률" },
+    "bmi_class_ko": "비만 2단계",
+    "bmi_class_basis": "대한비만학회 기준 (25.0~29.9 비만 1단계, 30.0~34.9 비만 2단계)"
+  },
+  "segmental_lean_analysis": {
+    "right_arm": { "mass_kg": 3.76,  "std_kg": 3.56,  "percent_of_standard": 105.6, "flag": "ABOVE",  "label_ko": "오른팔" },
+    "left_arm":  { "mass_kg": 3.68,  "std_kg": 3.56,  "percent_of_standard": 103.4, "flag": "NORMAL", "label_ko": "왼팔" },
+    "trunk":     { "mass_kg": 28.62, "std_kg": 25.58, "percent_of_standard": 111.9, "flag": "ABOVE",  "label_ko": "몸통" },
+    "right_leg": { "mass_kg": 10.08, "std_kg": 10.24, "percent_of_standard": 98.4,  "flag": "NORMAL", "label_ko": "오른다리" },
+    "left_leg":  { "mass_kg": 9.90,  "std_kg": 10.24, "percent_of_standard": 96.7,  "flag": "NORMAL", "label_ko": "왼다리" },
+    "balance": {
+      "upper_limb_asymmetry_percent": 2.2,
+      "lower_limb_asymmetry_percent": 1.8,
+      "left_right_balance_ko": "양호",
+      "upper_lower_balance_ko": "불균형 — 몸통 근육은 표준 이상이나 하지 근육은 표준 하단"
+    }
+  },
+  "additional_metrics": {
+    "waist_hip_ratio":    { "value": 1.02, "std_low": 0.80, "std_high": 0.90, "flag": "HIGH", "label_ko": "복부지방률" },
+    "visceral_fat_level": { "value": 18,   "std_low": 1,    "std_high": 9,    "flag": "HIGH", "label_ko": "내장지방레벨" },
+    "basal_metabolic_rate_kcal": { "value": 1722, "formula": "21.6 × 제지방량(kg) + 370", "label_ko": "기초대사량" },
+    "body_composition_score": { "value": 62, "max": 100, "standard": 80, "label_ko": "체성분점수" }
+  },
+  "control_guide": {
+    "target_weight_kg": 73.6,
+    "target_weight_basis": "제지방량 유지 + 목표 체지방률 15%",
+    "weight_control_kg": -23.0,
+    "muscle_control_kg": 0.0,
+    "fat_control_kg": -23.0
+  },
+  "expected_analysis_findings": [
+    "BMI 31.7 및 체지방률 35.2%로 두 지표 모두 표준 크게 초과 — 비만 2단계",
+    "체형 C자형 — 골격근량은 표준 범위 상단이나 체지방량이 표준의 336.6%",
+    "내장지방레벨 18 및 복부지방률 1.02로 복부 중심 지방 축적이 심함",
+    "부위별 근육에서 몸통 111.9% 대비 하지 평균 97.6% — 상하 불균형",
+    "체지방 23.0kg 감량이 목표이며 근육 감소 없이 진행해야 함",
+    "추이 분석의 기준선(baseline) 문서 — 이후 회차와의 델타 계산 출발점"
+  ]
+}
