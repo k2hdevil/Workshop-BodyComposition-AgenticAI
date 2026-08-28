@@ -29,6 +29,25 @@ Guardrail 의 일이 아닙니다(경계 분리는 Lab 2·3 에서 이미 처리
 들어갑니다. 그래서 사용자·문서에서 온 입력은 **입력 태그로 감싸** PROMPT_ATTACK 평가를
 받게 하고, 개발자 시스템 프롬프트는 평가에서 제외합니다.
 
+### 한국어를 막으려면 STANDARD 티어가 필수입니다
+
+Guardrail 에는 두 티어가 있습니다. 기본값인 **CLASSIC 티어는 영어·프랑스어·스페인어만
+감지**하므로, 한국어 진단문이나 인젝션이 **그대로 통과**합니다(정책은 평가되지만 위반으로
+분류하지 못함 — 실측 확인). 한국어 앱은 반드시 **STANDARD 티어**를 써야 하고, STANDARD 는
+**크로스리전 추론**을 함께 요구합니다.
+
+| 설정 | 값 | 이유 |
+|------|-----|------|
+| `crossRegionConfig.guardrailProfileIdentifier` | `us.guardrail.v1:0` | STANDARD 티어의 크로스리전 필수 조건 |
+| `topicPolicyConfig.tierConfig.tierName` | `STANDARD` | 한국어 거부 주제 감지 |
+| `contentPolicyConfig.tierConfig.tierName` | `STANDARD` | 한국어 프롬프트 공격 감지 |
+
+> **실측**: 기본(CLASSIC) 티어로는 "당신은 대사증후군입니다"가 `action=NONE` 으로 통과했고,
+> STANDARD + 크로스리전으로 바꾸자 `GUARDRAIL_INTERVENED` 로 차단됐습니다. 단, topic 정의가
+> 넓으면 "체지방률이 높은 편입니다" 같은 **정상 소견까지 과차단**됩니다. 그래서 정의를 "질병명
+> 확정"으로 좁히고 "측정값 서술은 제외"를 명시했습니다 — 조정 후 진단·약물·인젝션은 차단,
+> 정상 소견 4종은 모두 통과로 확인했습니다.
+
 ### 프롬프트 캐시와 압축은 경계를 나눠야 합니다
 
 캐시는 **안정된 prefix** 를 요구하고, 컨텍스트 압축은 대화 이력을 재작성해 그 prefix 를
@@ -70,26 +89,42 @@ def create_guardrail():
     resp = bedrock.create_guardrail(
         name="bca-safety",
         description="Block clinical diagnosis and medication advice; detect prompt attacks",
+        # 한국어를 감지하려면 STANDARD 티어 + 크로스리전이 필수입니다(아래 이론 참고).
+        # 기본(CLASSIC) 티어는 영어·프랑스어·스페인어만 감지해 한국어를 통과시킵니다.
+        crossRegionConfig={"guardrailProfileIdentifier": "us.guardrail.v1:0"},
         # 확정 진단·약물 처방을 거부 주제로 막습니다
         topicPolicyConfig={
+            "tierConfig": {"tierName": "STANDARD"},
             "topicsConfig": [
                 {
-                    "name": "ClinicalDiagnosis",
-                    "definition": "확정적인 의학적 진단명을 단정하는 진술",
-                    "examples": ["당신은 대사증후군입니다", "지방간으로 진단됩니다"],
+                    "name": "DiseaseDiagnosis",
+                    # 정의를 "질병명 확정"으로 좁힙니다. "체지방률이 높다" 같은 측정값 서술까지
+                    # 진단으로 오분류해 정상 소견이 과차단되는 것을 막기 위함입니다(실측 확인).
+                    "definition": (
+                        "특정 질병명(대사증후군·당뇨병·지방간·고혈압 등)으로 사용자가 그 병에 "
+                        "걸렸다고 단정하는 확정 진단. 체성분 수치가 표준보다 높다/낮다는 "
+                        "측정값 서술이나 일반적 건강 조언은 여기에 해당하지 않는다."
+                    ),
+                    "examples": [
+                        "당신은 대사증후군입니다",
+                        "지방간으로 진단됩니다",
+                        "검사 결과 당뇨병입니다",
+                        "이 수치는 고혈압을 의미합니다",
+                    ],
                     # TODO ①: 이 주제를 차단하도록 type 을 지정하세요
                     "type": "________",
                 },
                 {
                     "name": "MedicationAdvice",
-                    "definition": "약물·보충제의 처방이나 복용량 제시",
-                    "examples": ["메트포르민 500mg 을 드세요", "오메가3 2g 복용"],
+                    "definition": "특정 약물이나 보충제의 이름·복용량을 처방하는 내용. 일반적인 식단·운동 권고는 해당하지 않는다.",
+                    "examples": ["메트포르민 500mg 을 드세요", "오메가3 2g 복용하세요"],
                     "type": "DENY",
                 },
             ]
         },
         # 업로드 문서의 프롬프트 인젝션을 막습니다
         contentPolicyConfig={
+            "tierConfig": {"tierName": "STANDARD"},
             "filtersConfig": [
                 {
                     # TODO ②: 프롬프트 공격 필터 종류를 지정하세요
@@ -203,9 +238,11 @@ print('2회차:', second)  # cache_read 가 증가하면 캐시 적중
 ## 검증
 
 - [ ] `create_guardrail` 이 `guardrailId` 와 `version` 을 반환
+- [ ] 두 정책의 `tierConfig` 가 `STANDARD`, `crossRegionConfig` 지정됨 (한국어 감지 필수)
 - [ ] 확정 진단·약물 처방 주제가 `DENY` 로 설정됨
 - [ ] `PROMPT_ATTACK` 필터의 `outputStrength` 가 `NONE`
-- [ ] "당신은 대사증후군입니다" 를 검사하면 `GUARDRAIL_INTERVENED`
+- [ ] "당신은 대사증후군입니다" 를 검사하면 `GUARDRAIL_INTERVENED` (한국어 차단 확인)
+- [ ] 정상 소견은 `NONE` (과차단 없음)
 - [ ] 캐시 데모 2회차의 `cache_read` 가 0 보다 큼
 
 ---
@@ -214,6 +251,8 @@ print('2회차:', second)  # cache_read 가 증가하면 캐시 적중
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
+| **한국어인데 `action=NONE`** (안 막힘) | CLASSIC 티어는 한국어 미지원 | `tierConfig: {tierName: "STANDARD"}` + `crossRegionConfig` 설정 |
+| `create_guardrail` 이 ValidationException (tier) | STANDARD 인데 크로스리전 미설정 | `crossRegionConfig.guardrailProfileIdentifier: "us.guardrail.v1:0"` 추가 |
 | `create_guardrail` 이 ValidationException | PROMPT_ATTACK outputStrength 가 NONE 이 아님 | `outputStrength: "NONE"` 로 설정 |
 | 프롬프트 공격이 걸러지지 않음 | 사용자 입력에 태그·source 미지정 | `source="INPUT"` 로 사용자 텍스트를 넘김 |
 | 정상 소견이 과차단됨 | 거부 주제 정의가 지나치게 넓음 | `definition`·`examples` 를 구체화 |
@@ -241,6 +280,10 @@ print('2회차:', second)  # cache_read 가 증가하면 캐시 적중
 
 <details>
 <summary>guardrail.py · cache_demo.py TODO ①~⑤ 정답 (클릭하여 펼치기)</summary>
+
+> `create_guardrail` 의 `crossRegionConfig` 와 두 정책의 `tierConfig: {"tierName": "STANDARD"}`
+> 는 뼈대 코드에 이미 채워져 있습니다(빈칸 아님). 한국어 감지에 필수라 제거하면 Guardrail 이
+> 아무것도 막지 못합니다.
 
 **TODO ① — 확정 진단 차단**
 
