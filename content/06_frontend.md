@@ -138,7 +138,56 @@ if st.sidebar.button("로그아웃"):
 
 ### Step 3: 업로드 + 본인 확인 + 호출
 
-업로드한 결과지에서 추출한 이름과 로그인 이름을 대조합니다(Lab 1 의 편집거리 판정 재사용).
+업로드한 결과지에서 추출한 이름과 로그인 이름을 대조합니다. Lab 1 의 `verify_identity`
+판정 함수를 재사용하므로, 먼저 `lab6/identity.py` 로 옮겨 옵니다 — `_edit_distance` 와
+`verify_identity` 두 함수만 필요합니다(Lab 1 의 `pdfplumber`·`boto3` 관련 코드는
+Streamlit 이미지에 불필요하므로 가져오지 않습니다).
+
+```bash
+# lab6/ 안에서 실행 — app.py 와 같은 디렉터리에 identity.py 를 만듭니다
+cat > identity.py << 'EOF'
+def _edit_distance(a, b):
+    """Levenshtein 편집거리 (표준 DP)."""
+    if a == b:
+        return 0
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def verify_identity(login_name, sheet_name):
+    """완전일치 통과 / 편집거리 1 이하 경고 후 진행 / 그 외 차단."""
+    if not sheet_name:
+        return "WARN"  # 이름을 못 뽑았으면 진행하되 경고
+    d = _edit_distance(login_name, sheet_name)
+    if d == 0:
+        return "PASS"
+    elif d <= 1:
+        return "WARN"
+    return "BLOCK"
+EOF
+```
+
+`identity.py` 를 `app.py` 와 **같은 디렉터리**(`lab6/`)에 두면, 아래 `app.py` 의
+`from identity import verify_identity` 가 별도 경로 설정 없이 그대로 찾아냅니다 — Python 은
+실행 중인 스크립트의 디렉터리를 import 경로에 기본 포함하기 때문입니다.
+
+```
+lab6/
+├── app.py          # from identity import verify_identity
+├── identity.py      # app.py 와 같은 위치에 둡니다
+├── Dockerfile
+└── .streamlit/secrets.toml
+```
+
+> `identity.py` 는 `Dockerfile` 의 `COPY . /app` 으로 `app.py` 와 나란히 이미지에 자동
+> 포함됩니다(`WORKDIR /app` 이므로 컨테이너 안에서도 `/app/app.py` ·`/app/identity.py` 로
+> 같은 위치). 별도로 `Dockerfile` 을 수정할 필요는 없습니다. 다만 이 파일을 만들기 **전에**
+> 이미 이미지를 빌드·push 했다면, Step 4 의 `docker build` 를 다시 실행해야 반영됩니다.
 
 ```python
 # lab6/app.py (이어서)
@@ -390,6 +439,7 @@ aws ecs update-express-gateway-service \
 | `HostedCallbackUrl` 갱신이 `must contain a scheme` 오류 | `APP_URL` 에 `https://` 누락 | `ingressPaths[].endpoint` 가 스킴 없이 반환될 수 있음. Step 6 의 스킴 보정 코드 확인 |
 | 배포된 컨테이너에서 `StreamlitMissingAuthlibError` | Dockerfile 수정 전에 빌드한 이미지가 남아 있음 | Dockerfile 의 `pip install` 이 `"streamlit[auth]"` 인지 확인 후 `docker build --no-cache` 로 재빌드·재push, ECS 서비스도 새 이미지로 갱신 |
 | 화면에 결과지 이름이 뜸 | 표시용/검증용 혼동 | 화면에는 Cognito 이름만. 결과지 이름은 대조에만 |
+| `ModuleNotFoundError: No module named 'identity'` | `lab6/identity.py` 를 만들지 않음 | Step 3 시작 부분의 `cat > identity.py` 로 파일을 만든 뒤 `docker build --no-cache` 로 재빌드·재push, ECS 서비스도 새 이미지로 갱신 |
 
 ---
 
@@ -426,6 +476,13 @@ st.login()
 ```
 
 `st.login()` 이 Cognito authorization code 흐름으로 리다이렉트합니다.
+
+**Step 3 — `identity.py` 분리**
+
+Lab 1 의 `verify_identity`/`_edit_distance` 를 `lab6/identity.py` 로 옮겨 옵니다(Step 3
+본문의 `cat > identity.py` 블록 참고). Lab 1 의 `index.py` 전체를 복사하면 안 됩니다 —
+Lambda 전용인 `pdfplumber`·`boto3`·S3 호출 코드가 Streamlit 이미지에 불필요한 의존성을
+더합니다.
 
 **TODO ③ — 결과지 이름 키**
 
