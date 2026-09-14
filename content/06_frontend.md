@@ -84,6 +84,10 @@ CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
 echo "client_id     : $CLIENT_ID"
 echo "client_secret : $CLIENT_SECRET"
 echo "server_metadata_url: $OIDC_URL"
+
+# cookie_secret — 세션 쿠키 서명용 랜덤 문자열을 생성합니다
+COOKIE_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+echo "cookie_secret : $COOKIE_SECRET"
 ```
 
 ### Step 1: secrets.toml — 토큰 노출 설정
@@ -94,7 +98,7 @@ echo "server_metadata_url: $OIDC_URL"
 # lab6/.streamlit/secrets.toml
 [auth]
 redirect_uri = "http://localhost:8501/oauth2callback"
-cookie_secret = "임의의-긴-랜덤-문자열로-교체"
+cookie_secret = "<COOKIE_SECRET>"  # 위 명령으로 생성한 값
 client_id = "<CLIENT_ID>"
 client_secret = "<CLIENT_SECRET>"
 server_metadata_url = "<OIDC_URL>"
