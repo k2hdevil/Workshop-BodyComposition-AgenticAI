@@ -327,11 +327,32 @@ aws cloudformation deploy \
   --parameter-overrides ________="$APP_URL/oauth2callback"
 ```
 
-배포된 앱에서는 `secrets.toml` 의 `redirect_uri` 도 `$APP_URL/oauth2callback` 로 맞춰
-이미지를 다시 빌드·push 하고 서비스를 업데이트합니다.
+`secrets.toml` 의 `redirect_uri` 도 로컬 값(`http://localhost:8501/...`)이 그대로 있으면
+로그인 후 브라우저가 `localhost` 로 돌아가려다 실패합니다. 배포 URL 로 맞추고, `secrets.toml`
+은 이미지 안에 포함되므로(`COPY . /app`) 재빌드·재push·서비스 갱신까지 해야 반영됩니다.
 
-**정상 동작 확인**: 서비스 URL(`*.ecs.us-west-2.on.aws`)로 접속해 Cognito 로그인이 되고,
-로그인 후 이름이 화면에 표시되며 업로드 시 본인 확인 메시지가 뜹니다.
+```bash
+sed -i "s|redirect_uri = .*|redirect_uri = \"$APP_URL/oauth2callback\"|" .streamlit/secrets.toml
+grep redirect_uri .streamlit/secrets.toml
+
+docker build --no-cache --platform linux/amd64 -t "$IMAGE" .
+docker push "$IMAGE"
+
+aws ecs update-express-gateway-service \
+  --service-arn "$SERVICE_ARN" \
+  --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
+  --region us-west-2
+```
+
+로그인 화면에서는 `00_setup.md` Step 5 에서 만든 테스트 사용자를 그대로 씁니다.
+
+| 항목 | 값 |
+|------|-----|
+| 이메일(사용자명) | `test@example.com` |
+| 비밀번호 | `Workshop#2026` |
+
+**정상 동작 확인**: 서비스 URL(`*.ecs.us-west-2.on.aws`)로 접속해 위 계정으로 Cognito 로그인이
+되고, 로그인 후 이름(`김도현`)이 화면에 표시되며 업로드 시 본인 확인 메시지가 뜹니다.
 
 ---
 
