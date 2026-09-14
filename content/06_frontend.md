@@ -592,13 +592,6 @@ st.login()
 
 `st.login()` 이 Cognito authorization code 흐름으로 리다이렉트합니다.
 
-**Step 3 — `identity.py` 분리**
-
-Lab 1 의 `verify_identity`/`_edit_distance` 를 `lab6/identity.py` 로 옮겨 옵니다(Step 3
-본문의 `cat > identity.py` 블록 참고). Lab 1 의 `index.py` 전체를 복사하면 안 됩니다 —
-Lambda 전용인 `pdfplumber`·`boto3`·S3 호출 코드가 Streamlit 이미지에 불필요한 의존성을
-더합니다.
-
 **TODO ③ — 결과지 이름 대조**
 
 ```python
