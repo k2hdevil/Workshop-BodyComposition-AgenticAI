@@ -353,14 +353,13 @@ aws ecs create-express-gateway-service \
 
 > **Dockerfile 을 고쳐서 이미지를 다시 push 했다면** — 같은 `:latest` 태그로 push해도
 > 서비스가 자동으로 새 이미지를 가져오지 않습니다. 아래 명령으로 새 배포를 강제하세요.
-> `taskRoleArn` 을 나중에 추가·변경했다면 이 명령에 `--task-role-arn` 도 함께 넘겨야
-> 반영됩니다(생략하면 기존 설정이 그대로 유지되지 않고 비워질 수 있습니다).
+> `taskRoleArn` 은 생성 시 지정했으므로 다시 넘길 필요가 없습니다 — `update-express-gateway-service`
+> 는 명시한 파라미터만 갱신하고 나머지는 기존 값을 유지합니다.
 >
 > ```bash
 > aws ecs update-express-gateway-service \
 >   --service-arn "$SERVICE_ARN" \
 >   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
->   --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
 >   --region us-west-2
 > ```
 
@@ -415,7 +414,6 @@ docker push "$IMAGE"
 aws ecs update-express-gateway-service \
   --service-arn "$SERVICE_ARN" \
   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
-  --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
   --region us-west-2
 ```
 
@@ -460,7 +458,7 @@ aws ecs update-express-gateway-service \
 | `create-express-gateway-service` 가 서비스 연결 역할 오류 | `AWSServiceRoleForECS` 미생성 또는 전파 지연 | `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com` 실행. 이미 존재한다는 `taken` 오류면 정상이며, 1분 후 서비스 생성 재시도 |
 | LoadBalancer 가 `PROVISIONING` 에서 `ec2:DescribeAccountAttributes` AccessDenied 로 멈춤 | 관리형 정책에 이 권한이 없음(실측 확인) | Step 5 의 `put-role-policy` 인라인 정책 추가 후 서비스 삭제·재생성 |
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
-| `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) | Step 5 의 `bca-frontend-task-role` 생성·연결 확인. `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 이 `None` 이면 재생성 시 `--task-role-arn` 누락 |
+| `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) | `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 확인. `None` 이면 Step 5 의 `create-express-gateway-service` 에 `--task-role-arn` 을 포함해 재생성 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
 | `HostedCallbackUrl` 갱신이 `must contain a scheme` 오류 | `APP_URL` 에 `https://` 누락 | `ingressPaths[].endpoint` 가 스킴 없이 반환될 수 있음. Step 6 의 스킴 보정 코드 확인 |
