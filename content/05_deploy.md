@@ -188,6 +188,16 @@ agent = Agent(model=model, system_prompt=ANALYSIS_PROMPT, tools=[])
 agent = Agent(model=_make_model(), system_prompt=ANALYSIS_PROMPT, tools=[])
 ```
 
+`analysis_specialist`, `exercise_specialist`, `nutrition_specialist`, `build_supervisor`
+4곳 모두 바꿔야 합니다. 아래 명령으로 한 번에 교체할 수 있습니다.
+
+```bash
+sed -i 's/model=model/model=_make_model()/g' app/BcaWorkshop/agents.py
+
+# 확인 — 4곳이 모두 _make_model() 로 바뀌었는지 검사합니다
+grep -n "model=model\|model=_make_model" app/BcaWorkshop/agents.py
+```
+
 > **환경변수를 설정하면 더 빠릅니다.** `GUARDRAIL_ID` / `GUARDRAIL_VERSION` 이 Runtime
 > 환경에 있으면 `create_guardrail()` 을 부르지 않아 첫 호출이 빠릅니다. Step 6 배포 전에
 > `agentcore.json` 에 설정하는 것을 권장합니다(아래 Step 6 참고).
