@@ -305,12 +305,18 @@ aws xray update-trace-segment-destination \
 
 ### Step 6: 배포와 호출
 
-실행 역할을 지정해 배포합니다.
+실행 역할을 `agentcore.json` 에 설정한 뒤 배포합니다. `agentcore deploy` 는 `--execution-role`
+플래그를 지원하지 않고 설정 파일에서 읽습니다.
 
 ```bash
+# agentcore/agentcore.json 의 runtimes[0] 에 executionRoleArn 을 추가합니다
+jq --arg role "$RUNTIME_ROLE" \
+  '.runtimes[0].executionRoleArn = $role' \
+  agentcore/agentcore.json > /tmp/ac.json && mv /tmp/ac.json agentcore/agentcore.json
+
 # 배포 — uv 프로젝트라 Direct Code Deploy(zip)로 배포됩니다
 # TODO ③: 배포 명령을 완성하세요
-agentcore ________ --execution-role "$RUNTIME_ROLE"
+agentcore ________ -y
 ```
 
 배포가 끝나면 호출합니다.
@@ -394,12 +400,13 @@ def invoke(payload):
 
 **TODO ③ — 배포 명령**
 
-```python
-agentcore deploy --execution-role "$RUNTIME_ROLE"
+```bash
+agentcore deploy -y
 ```
 
-`agentcore deploy` 가 코드를 zip 으로 묶어 업로드·배포합니다. uv 프로젝트라 Direct Code
-Deploy 로 진행되고, 실행 역할은 사전 프로비저닝된 `AgentRuntimeRoleArn` 을 씁니다.
+`agentcore deploy` 가 코드를 zip 으로 묶어 업로드·배포합니다. 실행 역할은 배포 전에
+`agentcore.json` 의 `runtimes[0].executionRoleArn` 에 설정해야 합니다(`jq` 명령으로
+추가 — Step 6 참고). `-y` 로 확인 프롬프트를 건너뜁니다.
 
 ### 요약
 
@@ -407,6 +414,6 @@ Deploy 로 진행되고, 실행 역할은 사전 프로비저닝된 `AgentRuntim
 |---|------|------|
 | ① | `BedrockAgentCoreApp` | HTTP 서비스 컨트랙트 래퍼 |
 | ② | `entrypoint` | `/invocations` 진입점 등록 |
-| ③ | `deploy` | zip 패키징·업로드·배포 |
+| ③ | `deploy -y` | zip 패키징·업로드·배포 (실행 역할은 agentcore.json 에 사전 설정) |
 
 </details>
