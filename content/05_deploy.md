@@ -155,9 +155,6 @@ model = BedrockModel(model_id=MODEL_ID, temperature=0.2)         # ← 이 줄�
 import os
 from guardrail import create_guardrail
 
-# MODEL_ID 는 원본 코드에 있던 것과 동일하게 유지합니다
-MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
-
 # GUARDRAIL_ID 환경변수가 있으면 Lab 4 리소스를 재사용, 없으면 새로 생성합니다
 _gid = os.environ.get("GUARDRAIL_ID")
 _ver = os.environ.get("GUARDRAIL_VERSION")
