@@ -82,7 +82,7 @@ CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
 
 # secrets.toml 에 채울 값을 확인합니다
 echo "client_id     : $CLIENT_ID"
-echo "client_secret : ${CLIENT_SECRET:0:5}..."
+echo "client_secret : $CLIENT_SECRET"
 echo "server_metadata_url: $OIDC_URL"
 ```
 
