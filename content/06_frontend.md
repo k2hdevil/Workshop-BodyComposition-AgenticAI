@@ -308,9 +308,30 @@ aws iam attach-role-policy --role-name ecsInfrastructureRoleForExpressServices \
 aws iam put-role-policy --role-name ecsInfrastructureRoleForExpressServices \
   --policy-name express-describe-account-attributes \
   --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ec2:DescribeAccountAttributes","Resource":"*"}]}'
+
+# Task Role — 위 두 역할과는 다릅니다. ecsTaskExecutionRole 은 ECS 에이전트(이미지 pull·
+# 로그 전송)가 쓰고, Task Role 은 컨테이너 안의 app.py 코드가 boto3 로 AWS API 를 직접
+# 호출할 때 씁니다(Gateway 추출 결과 저장, Lab 5 Runtime 호출). Express Mode 는 Task Role
+# 을 자동으로 만들지 않으므로(생성 후 taskRoleArn 이 None) 직접 만들어 연결해야 합니다.
+aws iam create-role --role-name bca-frontend-task-role \
+  --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ecs-tasks.amazonaws.com"},"Action":"sts:AssumeRole"}]}' 2>/dev/null || true
+
+DATA_BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' --output text)
+
+aws iam put-role-policy --role-name bca-frontend-task-role \
+  --policy-name frontend-agent-access \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {"Effect": "Allow", "Action": "bedrock-agentcore:InvokeAgentRuntime", "Resource": "*"},
+      {"Effect": "Allow", "Action": "s3:PutObject", "Resource": "arn:aws:s3:::'"$DATA_BUCKET"'/measurements/*"}
+    ]
+  }'
 ```
 
 서비스를 생성합니다. Streamlit 은 8501 포트를 쓰고 헬스체크 경로는 `/_stcore/health` 입니다.
+`--task-role-arn` 을 지정해야 `app.py` 가 Gateway·Runtime 을 호출할 수 있습니다.
 
 ```bash
 aws ecs create-express-gateway-service \
@@ -318,6 +339,7 @@ aws ecs create-express-gateway-service \
   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
   --execution-role-arn "arn:aws:iam::$ACCOUNT:role/ecsTaskExecutionRole" \
   --infrastructure-role-arn "arn:aws:iam::$ACCOUNT:role/ecsInfrastructureRoleForExpressServices" \
+  --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
   --health-check-path "/_stcore/health" \
   --monitor-resources \
   --region us-west-2
@@ -331,11 +353,14 @@ aws ecs create-express-gateway-service \
 
 > **Dockerfile 을 고쳐서 이미지를 다시 push 했다면** — 같은 `:latest` 태그로 push해도
 > 서비스가 자동으로 새 이미지를 가져오지 않습니다. 아래 명령으로 새 배포를 강제하세요.
+> `taskRoleArn` 을 나중에 추가·변경했다면 이 명령에 `--task-role-arn` 도 함께 넘겨야
+> 반영됩니다(생략하면 기존 설정이 그대로 유지되지 않고 비워질 수 있습니다).
 >
 > ```bash
 > aws ecs update-express-gateway-service \
 >   --service-arn "$SERVICE_ARN" \
 >   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
+>   --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
 >   --region us-west-2
 > ```
 
@@ -390,6 +415,7 @@ docker push "$IMAGE"
 aws ecs update-express-gateway-service \
   --service-arn "$SERVICE_ARN" \
   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
+  --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
   --region us-west-2
 ```
 
@@ -434,6 +460,7 @@ aws ecs update-express-gateway-service \
 | `create-express-gateway-service` 가 서비스 연결 역할 오류 | `AWSServiceRoleForECS` 미생성 또는 전파 지연 | `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com` 실행. 이미 존재한다는 `taken` 오류면 정상이며, 1분 후 서비스 생성 재시도 |
 | LoadBalancer 가 `PROVISIONING` 에서 `ec2:DescribeAccountAttributes` AccessDenied 로 멈춤 | 관리형 정책에 이 권한이 없음(실측 확인) | Step 5 의 `put-role-policy` 인라인 정책 추가 후 서비스 삭제·재생성 |
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
+| `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) | Step 5 의 `bca-frontend-task-role` 생성·연결 확인. `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 이 `None` 이면 재생성 시 `--task-role-arn` 누락 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
 | `HostedCallbackUrl` 갱신이 `must contain a scheme` 오류 | `APP_URL` 에 `https://` 누락 | `ingressPaths[].endpoint` 가 스킴 없이 반환될 수 있음. Step 6 의 스킴 보정 코드 확인 |
