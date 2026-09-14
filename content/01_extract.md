@@ -382,7 +382,26 @@ aws lambda update-function-code \
 ```
 
 교체 후 Step 1 의 `verify_gateway_mcp.py` 를 다시 돌리면 `NOT_IMPLEMENTED` 대신 실제
-측정값이 돌아옵니다.
+측정값이 돌아옵니다. `lab1/` 디렉터리에서 그대로 실행하세요(경로는 Step 1 과 동일).
+
+```bash
+# $GATEWAY_URL 이 셸에 남아 있지 않으면 다시 조회합니다
+GATEWAY_URL=$(aws cloudformation describe-stacks --stack-name bca-workshop-gateway \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`GatewayUrl`].OutputValue' \
+  --output text)
+
+uv run python ../sample-data/tools/verify_gateway_mcp.py "$GATEWAY_URL" ../access-token.txt
+# 예상 출력(요약) — [3] tools/call 이 이제 실제 측정값을 돌려줍니다:
+#   [2] tools/list  -> bodyCompositionExtractor___extract_body_composition
+#   [3] tools/call  -> Lambda 응답: {"status": "OK", "source": "pdfplumber",
+#                       "s3_key": "measurements/user-a-session-03.pdf",
+#                       "measurement": {"name": "...", "weight_kg": ..., "bmi": ..., ...},
+#                       "validation_errors": []}
+```
+
+**정상 동작 확인**: `[3] tools/call` 응답의 `status` 가 `NOT_IMPLEMENTED` 가 아니라
+`OK`(또는 검증 실패 시 `VALIDATION_FAILED`)이고, `source=pdfplumber` 와 `measurement`
+객체가 함께 돌아옵니다. Lambda 교체가 즉시 반영되지 않으면 몇 초 뒤 다시 실행하세요.
 
 ---
 
