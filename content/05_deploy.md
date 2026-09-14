@@ -181,21 +181,7 @@ def _make_model():
     )
 ```
 
-그리고 `guardrail.py` 에 조회 함수를 추가합니다.
-
-```python
-# lab4/guardrail.py (이어서)
-
-def get_existing_guardrail(name="bca-safety"):
-    """이미 존재하는 Guardrail 을 이름으로 조회합니다."""
-    resp = bedrock.list_guardrails()
-    for g in resp.get("guardrails", []):
-        if g["name"] == name:
-            return g["id"], g["version"]
-    return None, None
-```
-
-`app/BcaWorkshop/guardrail.py` 에도 같은 함수를 추가합니다.
+그리고 `app/BcaWorkshop/guardrail.py` 에 조회 함수를 추가합니다.
 
 ```bash
 cat >> app/BcaWorkshop/guardrail.py << 'EOF'
