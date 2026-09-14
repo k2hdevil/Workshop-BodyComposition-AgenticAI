@@ -98,23 +98,47 @@ npm install -g @aws/agentcore   # AgentCore CLI
 ### Step 1: 프로젝트 스캐폴드 — agentcore create
 
 `agentcore dev` 와 `agentcore deploy` 는 모두 `agentcore.json` 이 있는 AgentCore 프로젝트
-안에서만 동작합니다. 먼저 스캐폴드를 만듭니다.
+안에서만 동작합니다. 스캐폴드를 만들고, Lab 2~4 에서 작성한 코드를 프로젝트 안으로 합칩니다.
 
 ```bash
-# 프레임워크: Strands Agents 선택
-agentcore create
+# 프로젝트 생성 (플래그로 대화형 질문을 건너뜁니다)
+agentcore create \
+  --project-name BcaWorkshop \
+  --name BcaWorkshop \
+  --language Python \
+  --framework Strands \
+  --model-provider Bedrock \
+  --memory none \
+  --build CodeZip
+
+cd BcaWorkshop
 ```
 
-`agentcore create` 는 대화형으로 프레임워크·모델·이름을 묻습니다. **프레임워크는 Strands
-Agents** 를 선택하세요. 완료 후 현재 디렉터리에 `agentcore/agentcore.json` 이 생깁니다.
+`agentcore create` 가 완료되면 `app/BcaWorkshop/main.py` 와 `pyproject.toml` 이 생깁니다.
+이제 Lab 2~4 에서 만든 코드를 앱 디렉터리로 복사하고 의존성을 합칩니다.
+
+```bash
+# Lab 2~4 코드를 앱 디렉터리로 복사합니다
+# (lab5/ 와 BcaWorkshop/ 이 같은 디렉터리에 있다고 가정)
+cp ../lab2/agents.py app/BcaWorkshop/
+cp ../lab3/memory_store.py app/BcaWorkshop/
+cp ../lab4/guardrail.py app/BcaWorkshop/
+
+# Lab 2~4 에서 쓴 의존성을 이 프로젝트에도 추가합니다
+uv add strands-agents bedrock-agentcore boto3 aws-opentelemetry-distro
+```
+
+**정상 동작 확인**: `app/BcaWorkshop/` 안에 `main.py`, `agents.py`, `memory_store.py`,
+`guardrail.py` 가 있고, `uv.lock` 이 갱신됩니다.
 
 ### Step 2: entrypoint 작성
 
-`lab5/agent_runtime.py` 를 만듭니다. Lab 2 의 `coach()` 를 호출하는 진입점입니다.
+`agentcore create` 가 생성한 `app/BcaWorkshop/main.py` 를 아래 내용으로 교체합니다.
+Lab 2 의 `coach()` 를 호출하는 진입점입니다.
 
 ```python
-# lab5/agent_runtime.py
-# from agents import coach   # Lab 2 의 Supervisor 조율 함수 (같은 프로젝트에 복사)
+# app/BcaWorkshop/main.py
+from agents import coach   # Step 1 에서 복사한 Lab 2 Supervisor
 
 # TODO ①: AgentCore 앱 래퍼를 가져옵니다
 from bedrock_agentcore import ________
@@ -140,8 +164,9 @@ if __name__ == "__main__":
     app.run()
 ```
 
-> `coach` 는 Lab 2 `agents.py` 의 함수입니다. 이 프로젝트로 `agents.py` 를 복사해 오거나
-> import 경로를 맞추세요. Guardrail(Lab 4)을 붙인 모델을 쓰면 안전 장치가 함께 배포됩니다.
+> `coach` 는 Step 1 에서 `app/BcaWorkshop/` 에 복사한 `agents.py` 의 함수입니다.
+> Guardrail(Lab 4)을 붙인 모델을 쓰려면 `guardrail.py` 의 `build_guarded_model` 을
+> `agents.py` 의 모델 초기화 부분에 연결하세요.
 
 ### Step 3: 로컬 테스트
 
@@ -209,7 +234,7 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 | 배포가 Container 방식으로 감 | uv 미사용 | uv 프로젝트인지 확인. `uv.lock` 존재 시 CodeZip 권장 |
 | `agentcore dev` 가 포트 오류 | 8080 사용 중 | 8080 을 쓰는 프로세스 종료 후 재실행 |
 | 배포가 AccessDenied | 실행 역할 권한 부족 | `AgentRuntimeRoleArn` 을 지정했는지 확인. 임의 역할 금지 |
-| `invoke` 가 ModuleNotFound (agents) | Lab 2 코드 미포함 | `agents.py` 를 프로젝트에 복사했는지 확인 |
+| `invoke` 가 ModuleNotFound (agents) | Lab 2 코드 미복사 | Step 1 의 `cp ../lab2/agents.py app/BcaWorkshop/` 를 실행했는지 확인 |
 | 트레이스가 안 보임 | Transaction Search 미활성 | Step 4 명령 실행 후 재배포. 수집까지 수 분 지연 |
 | 콜드스타트가 김 | 첫 배포는 의존성 설치 | 이후 업데이트는 zip 의존성 재사용으로 빨라짐 |
 
