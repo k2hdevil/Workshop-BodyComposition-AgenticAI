@@ -206,6 +206,52 @@ print('delta:', ms.compute_delta(brief(first), brief(latest)))
 (정답 JSON 의 `expected_trend_vs_session_01` 과 일치). Memory 요약은 추출에 시간이
 걸리므로, 조회가 비면 잠시 후 다시 시도합니다.
 
+### Step 5: 사용자 격리 검증 — 다른 sub 로는 안 보인다
+
+격리 키는 `actor_id`(=Cognito `sub`)이고, 조회 네임스페이스도 `/trend/{sub}/...` 로 그
+`sub` 를 끼워 넣습니다. 따라서 **다른 사용자의 `sub` 로 조회하면 남의 회차가 나오면 안
+됩니다.** 이 앱은 본인이 본인 결과지를 보는 앱이므로, 이 격리가 깨지면 타인의 건강 이력이
+노출됩니다. 말로 끝내지 않고 직접 확인합니다.
+
+같은 Memory 를 방금 만들었다면 그 `memory_id` 를 재사용하고, 새 셸이면 Step 4 처럼 다시
+만들어 user-a 3회차를 저장한 상태에서 실행하세요. user-a 의 `sub` 로는 결과가 나오고,
+아무것도 저장하지 않은 user-b 의 `sub` 로는 비어 있어야 합니다.
+
+```bash
+MEMORY_ROLE=$MEMORY_ROLE uv run python -c "
+import json, memory_store as ms
+
+# Step 4 에서 만든 Memory 를 그대로 쓰거나, 없으면 새로 만들어 user-a 3회차를 저장합니다
+mid = ms.create_trend_memory()
+gt = '../sample-data/ground-truth'
+A_SUB, B_SUB = 'user-a-sub-0001', 'user-b-sub-0002'   # 서로 다른 Cognito sub
+for seq in ('01','02','03'):
+    ms.save_session(mid, A_SUB, f'session-{seq}', json.load(open(f'{gt}/user-a-session-{seq}.json')))
+
+# 같은 session_id 로 두 사용자의 네임스페이스를 조회해 대조합니다
+a_hits = ms.get_trend(mid, A_SUB, 'session-03')   # user-a 본인 — 결과가 있어야 함
+b_hits = ms.get_trend(mid, B_SUB, 'session-03')   # user-b — user-a 것이 보이면 안 됨
+
+def count(hits):
+    # retrieve_memories 응답 형태(list 또는 dict)에 관계없이 길이를 셉니다
+    if isinstance(hits, dict):
+        hits = hits.get('memoryRecords') or hits.get('memories') or []
+    return len(hits or [])
+
+print('user-a sub 조회 건수:', count(a_hits))
+print('user-b sub 조회 건수:', count(b_hits))
+assert count(b_hits) == 0, '격리 실패: user-b sub 로 user-a 데이터가 조회됨'
+print('격리 확인 OK — 다른 sub 로는 조회되지 않음')
+"
+```
+
+**정상 동작 확인**: `user-b sub 조회 건수: 0` 이 나오고 `assert` 가 통과합니다. user-a 는
+방금 저장했으므로 요약이 추출되면 건수가 1 이상으로 올라갑니다(추출 지연 시 user-a 는 0 일
+수 있으나, 격리 검증의 핵심은 **user-b 가 항상 0** 이라는 점입니다).
+
+> 참고: `session_id` 는 회차를 나누는 값이고, 사용자 격리는 `actor_id`(`sub`)가 담당합니다.
+> 그래서 같은 `session-03` 을 조회해도 `sub` 가 다르면 서로 다른 네임스페이스가 됩니다.
+
 ---
 
 ## 검증
@@ -215,7 +261,7 @@ print('delta:', ms.compute_delta(brief(first), brief(latest)))
 - [ ] `save_session` 의 `actor_id` 에 이름이 아니라 `sub` 가 들어감
 - [ ] user-a 3회차가 저장됨
 - [ ] `compute_delta` 결과가 체중 −4.2 / 체지방 −4.0 / 골격근 −0.1
-- [ ] user-b 의 `sub` 로는 user-a 의 회차가 조회되지 않음(격리 확인)
+- [ ] user-b 의 `sub` 로는 user-a 의 회차가 조회되지 않음(Step 5 격리 검증 통과, `assert` OK)
 
 ---
 
@@ -227,6 +273,7 @@ print('delta:', ms.compute_delta(brief(first), brief(latest)))
 | `KeyError: 'MEMORY_ROLE'` | 환경변수 미전달 | 위와 동일. 실습 시작에서 `MEMORY_ROLE` 을 조회했는지도 확인 |
 | `retrieve_memories` 결과가 비어 있음 | 요약 추출이 아직 진행 중 | 30~60초 후 재시도. 단기 이벤트는 즉시, 장기 요약은 지연 |
 | 다른 사용자 데이터가 섞임 | `actor_id` 를 고정값으로 씀 | 사용자마다 다른 `sub` 를 넣었는지 확인 |
+| Step 5 `assert` 가 격리 실패로 멈춤 | 저장·조회 네임스페이스에 `sub` 미반영 | `create_event` 의 `actor_id` 와 `get_trend` 의 `namespace` 가 모두 `sub` 를 쓰는지 확인 |
 | `namespace` 불일치로 조회 실패 | 템플릿과 조회 문자열 불일치 | 전략의 `namespaceTemplates` 와 조회 `namespace` 를 같은 형식으로 |
 | 델타 부호가 반대 | first/latest 순서 뒤바뀜 | `compute_delta(first, latest)` 인자 순서 확인 |
 | `ThrottlingException` | 짧은 시간 다수 이벤트 | 저장 사이에 지연을 두거나 재시도 |
