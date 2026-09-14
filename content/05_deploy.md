@@ -142,19 +142,19 @@ cd ../..   # BcaWorkshop/ 루트로 돌아옵니다 (agentcore dev/deploy 는 �
 
 ```python
 # 현재 (Lab 2 에서 작성한 그대로)
+from strands.models import BedrockModel                         # ← 이 줄도 교체합니다
 MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"   # ← 이 줄은 그대로 둡니다
 model = BedrockModel(model_id=MODEL_ID, temperature=0.2)         # ← 이 줄만 교체합니다
 ```
 
-`model = ...` 한 줄을 Guardrail 이 붙은 모델로 교체합니다. `MODEL_ID` 는 그대로 유지합니다.
-`model` 은 세 전문 에이전트가 공유하므로 여기 한 곳만 바꾸면 에이전트 4개에 Guardrail 이
-일괄 적용됩니다.
+`from strands.models import BedrockModel` 과 `model = ...` 두 줄을 아래로 교체합니다.
+`MODEL_ID` 는 그대로 유지합니다.
 
 ```python
 # 위 한 줄을 아래 블록으로 교체합니다
 import os
 from guardrail import create_guardrail
-from strands.models.bedrock import CacheConfig
+from strands.models.bedrock import BedrockModel, CacheConfig   # BedrockModel import 경로도 변경
 
 # GUARDRAIL_ID 환경변수가 있으면 Lab 4 리소스를 재사용, 없으면 새로 생성합니다
 _gid = os.environ.get("GUARDRAIL_ID")
