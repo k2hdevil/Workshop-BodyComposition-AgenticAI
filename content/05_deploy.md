@@ -138,17 +138,22 @@ cd ../..   # BcaWorkshop/ 루트로 돌아옵니다 (agentcore dev/deploy 는 �
 
 **Guardrail 연결 — `app/BcaWorkshop/agents.py` 상단 수정**
 
-`agents.py` 에는 지금 이 두 줄이 있습니다.
+`agents.py` 에는 지금 이 세 줄이 있습니다.
 
 ```python
 # 현재 (Lab 2 에서 작성한 그대로)
-from strands.models import BedrockModel                         # ← 이 줄도 교체합니다
-MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"   # ← 이 줄은 그대로 둡니다
-model = BedrockModel(model_id=MODEL_ID, temperature=0.2)         # ← 이 줄만 교체합니다
+from strands.models import BedrockModel
+MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"   # ← 이 줄은 유지합니다
+model = BedrockModel(model_id=MODEL_ID, temperature=0.2)
 ```
 
-`from strands.models import BedrockModel` 과 `model = ...` 두 줄을 아래로 교체합니다.
-`MODEL_ID` 는 그대로 유지합니다.
+`MODEL_ID` 는 그대로 두고, 나머지 두 줄을 아래 블록으로 교체합니다.
+
+```
+from strands.models import BedrockModel               ← 교체
+MODEL_ID = "..."                                       ← 유지
+model = BedrockModel(model_id=MODEL_ID, temperature=0.2)  ← 교체
+```
 
 ```python
 # 위 두 줄을 아래 블록으로 교체합니다
