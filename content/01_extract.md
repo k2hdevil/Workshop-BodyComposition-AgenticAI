@@ -327,7 +327,18 @@ def handler(event, context):
 ### 로컬에서 도구 실행해 보기
 
 Lambda 로 올리기 전에 로컬에서 세 케이스를 직접 돌려 봅니다(스캔본·디지털·타인).
-버킷 이름을 환경변수 `DATA_BUCKET` 로 넣어 실행하세요.
+
+`index.py` 는 최상단에서 `import pdfplumber` 를 하므로, 먼저 로컬 실습 환경에 필요한
+패키지를 설치합니다(설치를 건너뛰면 아래 `uv run` 이 `ModuleNotFoundError: pdfplumber`
+로 실패합니다). 이 저장소는 `uv` 프로젝트가 아니므로 `uv add` 대신 `uv pip install` 을
+씁니다 — 없으면 가상환경을 먼저 만드세요.
+
+```bash
+# (가상환경이 없으면 한 번만) uv venv && source .venv/bin/activate
+uv pip install pdfplumber boto3
+```
+
+이제 버킷 이름을 환경변수 `DATA_BUCKET` 로 넣어 실행합니다.
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
@@ -398,6 +409,7 @@ aws lambda update-function-code \
 | Converse 가 `ValidationException` | document 블록 키 오타 | `format`/`name`/`source` 키 이름 확인. name 에 공백 금지 |
 | BMI 검증이 항상 실패 | 신장 단위(cm↔m) 혼동 | 신장을 100 으로 나눠 m 로 변환했는지 확인 |
 | 정당한 사용자가 `BLOCK` | 완전일치로 판정 중 | 편집거리 1 이하는 `WARN` 이어야 함(TODO ⑥) |
+| 로컬 `uv run` 이 `ModuleNotFoundError: pdfplumber` | 로컬에 패키지 미설치 | 로컬 실행 앞의 `uv pip install pdfplumber boto3` 를 먼저 실행 |
 | `pip install pdfplumber` 가 x86 휠 설치 | 플랫폼 미지정 | `--platform manylinux2014_aarch64 --only-binary=:all:` 필수(Lambda arm64) |
 | `Could not get FontBBox` 경고 폭주 | pdfminer 가 PDF 폰트 메타 읽으며 내는 경고 | 무해함. `logging.getLogger("pdfminer").setLevel(logging.ERROR)` 로 억제(코드 상단에 포함) |
 
