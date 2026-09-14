@@ -253,6 +253,12 @@ aws iam create-role --role-name ecsInfrastructureRoleForExpressServices \
   --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ecs.amazonaws.com"},"Action":"sts:AssumeRole"}]}' 2>/dev/null || true
 aws iam attach-role-policy --role-name ecsInfrastructureRoleForExpressServices \
   --policy-arn arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRoleforExpressGatewayServices
+
+# 관리형 정책에 ec2:DescribeAccountAttributes 가 빠져 있어 Express 가 기본 VPC 를
+# 확인하는 단계에서 AccessDenied 로 실패합니다(실측 확인). 인라인 정책으로 보완합니다.
+aws iam put-role-policy --role-name ecsInfrastructureRoleForExpressServices \
+  --policy-name express-describe-account-attributes \
+  --policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"ec2:DescribeAccountAttributes","Resource":"*"}]}'
 ```
 
 서비스를 생성합니다. Streamlit 은 8501 포트를 쓰고 헬스체크 경로는 `/_stcore/health` 입니다.
@@ -339,6 +345,7 @@ aws cloudformation deploy \
 | 태스크가 `exec format error` 로 안 뜸 | arm64 이미지를 x86 Fargate 에 배포 | `--platform linux/amd64` 로 다시 빌드·push |
 | Docker 빌드 중 `/bin/sh: exec format error` 또는 `failed to solve` exit code 255 | ARM64 빌드 호스트에 AMD64 에뮬레이션 미설치 또는 잘못된 레이어 캐시 | `docker run --privileged --rm tonistiigi/binfmt --install amd64` 후 `docker build --no-cache --platform linux/amd64 ...` 재실행. `pip install` 명령 자체의 오류가 아님 |
 | `create-express-gateway-service` 가 서비스 연결 역할 오류 | `AWSServiceRoleForECS` 미생성 또는 전파 지연 | `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com` 실행. 이미 존재한다는 `taken` 오류면 정상이며, 1분 후 서비스 생성 재시도 |
+| LoadBalancer 가 `PROVISIONING` 에서 `ec2:DescribeAccountAttributes` AccessDenied 로 멈춤 | 관리형 정책에 이 권한이 없음(실측 확인) | Step 5 의 `put-role-policy` 인라인 정책 추가 후 서비스 삭제·재생성 |
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
