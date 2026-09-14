@@ -188,6 +188,8 @@ def build_guarded_model(guardrail_id, version):
 
 캐시 체크포인트를 시스템 프롬프트 뒤에 둡니다. 최소 1,024 토큰을 넘어야 캐시가 걸립니다.
 
+`lab4/cache_demo.py` 를 만듭니다.
+
 ```python
 # lab4/cache_demo.py
 import boto3
