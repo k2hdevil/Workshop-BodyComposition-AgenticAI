@@ -136,6 +136,31 @@ cd ../..   # BcaWorkshop/ 루트로 돌아옵니다 (agentcore dev/deploy 는 �
 
 코드를 복사했으니 이제 각 Lab 의 기능을 실제로 연결합니다.
 
+**Runtime 역할에 Guardrail 조회 권한 추가**
+
+`_make_model()` 이 `get_existing_guardrail()` 로 기존 Guardrail 을 조회하므로,
+Runtime 실행 역할에 `bedrock:ListGuardrails` 와 `bedrock:GetGuardrail` 권한이 있어야 합니다.
+
+```bash
+aws iam put-role-policy \
+  --role-name bca-workshop-agent-runtime-role \
+  --policy-name guardrail-lookup \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:ListGuardrails",
+        "bedrock:GetGuardrail"
+      ],
+      "Resource": "*"
+    }]
+  }' \
+  --region us-west-2
+```
+
+**정상 동작 확인**: 오류 없이 완료됩니다.
+
 **Guardrail 연결 — `app/BcaWorkshop/agents.py` 상단 수정**
 
 `agents.py` 에는 지금 이 두 줄이 있습니다.
@@ -413,6 +438,8 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 | `ImportError: guardrail` | guardrail.py 미복사 | Step 1 의 `cp ../lab4/guardrail.py app/BcaWorkshop/` 확인 |
 | `ImportError: memory_store` | memory_store.py 미복사 | Step 1 의 `cp ../lab3/memory_store.py app/BcaWorkshop/` 확인 |
 | Guardrail 이 매 시작마다 새로 생성됨 | GUARDRAIL_ID 환경변수 미설정 | Step 2 안내대로 `export GUARDRAIL_ID=...` 설정 |
+| `AccessDeniedException: CreateGuardrail` | Runtime 역할에 권한 없음 | Step 2 의 `put-role-policy` 로 ListGuardrails·GetGuardrail 추가 |
+| `ConflictException: Another guardrail has this name` | 환경변수 미전달로 create 재시도 | `get_existing_guardrail()` 이 먼저 조회하므로 역할 권한 추가 후 해결 |
 | 콜드스타트가 김 | 첫 배포는 의존성 설치 | 이후 업데이트는 zip 의존성 재사용으로 빨라짐 |
 
 ---
