@@ -244,12 +244,43 @@ aws cognito-idp admin-set-user-password \
 
 이제 액세스 토큰을 받습니다. **Gateway 는 액세스 토큰을 요구합니다**(ID 토큰은 403).
 
+이 App Client 는 `st.login()`(Lab 6)에 필요한 **client secret 이 켜져 있습니다**
+(`GenerateSecret: true`). secret 이 있는 App Client 로 인증할 때는
+`admin-initiate-auth` 에 `SECRET_HASH` 를 함께 넘겨야 합니다. 없으면
+`NotAuthorizedException: Client is configured with secret but SECRET_HASH was not received`
+로 실패합니다. `SECRET_HASH` 는 `HMAC-SHA256(client_secret, username + client_id)` 를
+Base64 로 인코딩한 값입니다.
+
+먼저 client secret 을 조회합니다(CloudFormation 출력으로는 노출되지 않아 별도 조회).
+
+```bash
+CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
+  --user-pool-id "$POOL_ID" \
+  --client-id "$CLIENT_ID" \
+  --region us-west-2 \
+  --query 'UserPoolClient.ClientSecret' --output text)
+echo "Got secret: ${CLIENT_SECRET:0:5}..."
+```
+
+조회한 secret 으로 `SECRET_HASH` 를 계산합니다(사용자명 + client_id 를 메시지로 사용).
+
+```bash
+SECRET_HASH=$(python3 -c "
+import hmac, hashlib, base64
+msg = 'test@example.com' + '$CLIENT_ID'
+sig = hmac.new('$CLIENT_SECRET'.encode(), msg.encode(), hashlib.sha256).digest()
+print(base64.b64encode(sig).decode())
+")
+```
+
+이제 `SECRET_HASH` 를 auth 파라미터에 포함해 토큰을 받습니다.
+
 ```bash
 aws cognito-idp admin-initiate-auth \
   --user-pool-id "$POOL_ID" \
   --client-id "$CLIENT_ID" \
   --auth-flow ADMIN_USER_PASSWORD_AUTH \
-  --auth-parameters USERNAME=test@example.com,PASSWORD='Workshop#2026' \
+  --auth-parameters USERNAME=test@example.com,PASSWORD='Workshop#2026',SECRET_HASH="$SECRET_HASH" \
   --region us-west-2 \
   --query 'AuthenticationResult.AccessToken' --output text > access-token.txt
 
@@ -286,6 +317,8 @@ Lab 1 에서 이 파일을 그대로 씁니다.
 | gateway 배포가 IAM Role 오류로 실패 | 역할 `Description` 에 비 ASCII 문자 | 템플릿의 `Description` 은 이미 영문. 수정했다면 ASCII 로 되돌리기 |
 | `GatewayStatus` 가 계속 `CREATING` | Gateway 생성이 진행 중 | 30초~1분 후 다시 조회. 5분 넘으면 스택 이벤트 확인 |
 | `admin-initiate-auth` 가 `NotAuthorizedException` | 비밀번호 불일치 또는 흐름 미허용 | `admin-set-user-password` 재실행, App Client 에 `ADMIN_USER_PASSWORD_AUTH` 확인 |
+| `Client is configured with secret but SECRET_HASH was not received` | App Client 에 secret 이 있는데 해시 누락 | 위 절차대로 `CLIENT_SECRET` 조회 → `SECRET_HASH` 계산 → `--auth-parameters` 에 포함 |
+| `SECRET_HASH` 를 넣었는데도 `NotAuthorizedException` | 해시 계산 입력 불일치 | 해시 메시지는 `username + client_id` 순서. `USERNAME` 값과 해시의 사용자명이 같아야 함 |
 | `s3 cp` 가 `AccessDenied` | 리전 불일치 또는 버킷명 오타 | `$BUCKET` 값 확인, `--region us-west-2` 명시 |
 | 한글 `name` 속성이 깨져 저장 | 터미널 인코딩 | UTF-8 터미널 사용, 값 앞뒤 공백 제거 |
 
