@@ -319,6 +319,11 @@ aws iam create-role --role-name bca-frontend-task-role \
 DATA_BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
   --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' --output text)
 
+# Lab 5 에서 배포한 Runtime 의 ARN — app.py 가 invoke_agent_runtime 호출 시 씁니다
+RUNTIME_ARN=$(aws bedrock-agentcore-control list-agent-runtimes --region us-west-2 \
+  --query "agentRuntimes[?agentRuntimeName=='BcaWorkshop'].agentRuntimeArn" --output text)
+echo "RUNTIME_ARN=$RUNTIME_ARN"
+
 aws iam put-role-policy --role-name bca-frontend-task-role \
   --policy-name frontend-agent-access \
   --policy-document '{
@@ -333,10 +338,15 @@ aws iam put-role-policy --role-name bca-frontend-task-role \
 서비스를 생성합니다. Streamlit 은 8501 포트를 쓰고 헬스체크 경로는 `/_stcore/health` 입니다.
 `--task-role-arn` 을 지정해야 `app.py` 가 Gateway·Runtime 을 호출할 수 있습니다.
 
+`app.py` 가 `os.environ` 으로 읽는 `DATA_BUCKET`·`RUNTIME_ARN` 도 컨테이너 환경변수로 넘깁니다.
+
 ```bash
+GATEWAY_URL=$(aws cloudformation describe-stacks --stack-name bca-workshop-gateway \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`GatewayUrl`].OutputValue' --output text)
+
 aws ecs create-express-gateway-service \
   --service-name bca-frontend \
-  --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
+  --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501,\"environment\":[{\"name\":\"DATA_BUCKET\",\"value\":\"$DATA_BUCKET\"},{\"name\":\"GATEWAY_URL\",\"value\":\"$GATEWAY_URL\"},{\"name\":\"RUNTIME_ARN\",\"value\":\"$RUNTIME_ARN\"}]}" \
   --execution-role-arn "arn:aws:iam::$ACCOUNT:role/ecsTaskExecutionRole" \
   --infrastructure-role-arn "arn:aws:iam::$ACCOUNT:role/ecsInfrastructureRoleForExpressServices" \
   --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
