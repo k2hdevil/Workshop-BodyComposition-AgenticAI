@@ -23,6 +23,28 @@ Lab 2~4 에서 만든 에이전트를 AgentCore Runtime 에 **CodeZip(Direct Cod
 Docker 빌드와 ECR push 는 4시간 세션에서 감당할 수 없는 실패 지점입니다. `uv` 기반 프로젝트면
 AgentCore CLI 가 코드를 zip 으로 묶어 바로 배포합니다.
 
+### 에이전트 4개가 하나의 Runtime인 이유
+
+"멀티 에이전트라면 Runtime도 여러 개여야 하지 않나"라는 의문이 자연스럽게 생깁니다.
+답은 **이 워크샵의 전문 에이전트 3개가 독립 서비스가 아니라 Supervisor 의 `@tool`** 이기
+때문입니다.
+
+```
+Supervisor (Runtime 진입점)
+  @tool analysis_specialist()   ← 같은 프로세스 내 함수 호출
+  @tool exercise_specialist()   ← 같은 프로세스 내 함수 호출
+  @tool nutrition_specialist()  ← 같은 프로세스 내 함수 호출
+```
+
+외부에서 보면 단일 엔드포인트, 내부에서는 Supervisor 가 세 에이전트를 순차로 조율합니다.
+이것이 Lab 2 에서 배운 **Agent-as-Tool 패턴**이고, Runtime 은 이 Supervisor 를 호스팅하는
+단위입니다.
+
+> 프로덕션에서는 전문 에이전트를 각각 독립 Runtime 으로 분리하고 Supervisor 가 원격으로
+> 호출하는 구조도 가능합니다. 그 경우 에이전트 간 격리·독립 확장·개별 배포가 가능하지만
+> 네트워크 지연과 인증 복잡도가 추가됩니다. 이 워크샵은 4시간 제약과 개념 검증을 위해
+> 단일 Runtime 을 선택합니다(Action Items 참고).
+
 ### Runtime 서비스 컨트랙트
 
 에이전트는 두 가지만 만족하면 됩니다. `@app.entrypoint` 데코레이터를 쓰면 아래를 SDK 가
