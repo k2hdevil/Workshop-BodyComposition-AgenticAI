@@ -178,27 +178,24 @@ if __name__ == "__main__":
 > 다른 포트를 지정하고 curl 도 같은 포트를 쓰세요.
 
 ```bash
-# BcaWorkshop/ 루트에서 실행
-agentcore dev --port 8082 --no-browser
+# BcaWorkshop/ 루트에서 실행 — 백그라운드로 띄우고 로그를 실시간으로 봅니다
+agentcore dev --port 8082 --no-browser > agentcore-dev.log 2>&1 &
+tail -f agentcore-dev.log
 ```
 
-> 로그를 파일로 남기려면 다른 터미널에서 백그라운드로 실행하세요.
-> ```bash
-> agentcore dev --port 8082 --no-browser > agentcore-dev.log 2>&1 &
-> tail -f agentcore-dev.log   # 실시간 확인. 종료: kill %1
-> ```
-
-다른 터미널에서 호출합니다. Supervisor 가 에이전트 3개를 순차 호출하므로
-**응답까지 수십 초가 걸립니다** — 기다리거나 `-m 120` 으로 타임아웃을 늘리세요.
+다른 터미널을 열지 않아도 됩니다 — 같은 터미널에서 `tail -f` 를 `Ctrl+C` 로 끊고
+아래 curl 을 실행하세요. 서버는 백그라운드에서 계속 동작합니다.
 
 ```bash
 curl -m 120 -X POST http://localhost:8082/invocations \
   -H "Content-Type: application/json" \
   -d '{"measurement": {"obesity_analysis": {"pbf_percent": {"value": 32.5}}}}'
+# Supervisor 가 에이전트 3개를 순차 호출하므로 응답까지 수십 초가 걸립니다
 # 예상: {"result": "...소견/운동/식단..."}
 ```
 
-**정상 동작 확인**: `/invocations` 가 200 과 `result` 를 반환합니다. 확인 후 `Ctrl+C`.
+**정상 동작 확인**: `/invocations` 가 200 과 `result` 를 반환합니다.
+서버 종료는 `kill %1` 또는 `fg` 후 `Ctrl+C`.
 
 ### Step 4: Observability 활성화
 
