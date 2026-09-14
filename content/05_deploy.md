@@ -75,13 +75,11 @@ echo "$RUNTIME_ROLE"
 # 예상 출력: arn:aws:iam::<계정>:role/bca-workshop-agent-runtime-role
 ```
 
-프로젝트를 만들고 의존성을 설치합니다.
+프로젝트 디렉터리와 의존성은 Step 1 의 `agentcore create` 가 모두 만들어 줍니다.
+AgentCore CLI 가 아직 없다면 먼저 설치하세요.
 
 ```bash
-mkdir -p lab5 && cd lab5
-uv init --python 3.13 .
-uv add bedrock-agentcore strands-agents aws-opentelemetry-distro
-npm install -g @aws/agentcore   # AgentCore CLI
+npm install -g @aws/agentcore   # AgentCore CLI (이미 설치돼 있으면 건너뜁니다)
 ```
 
 > **참고 — npm 설치 오류가 나도 CLI 가 이미 있을 수 있습니다.** 워크샵 이미지에는
