@@ -132,10 +132,111 @@ cd ../..   # BcaWorkshop/ 루트로 돌아옵니다 (agentcore dev/deploy 는 �
 **정상 동작 확인**: `app/BcaWorkshop/` 안에 `main.py`, `agents.py`, `memory_store.py`,
 `guardrail.py` 가 있고, `app/BcaWorkshop/uv.lock` 이 갱신됩니다.
 
-### Step 2: entrypoint 작성
+### Step 2: Lab 2~4 통합 — Guardrail · Memory 연결
 
-`agentcore create` 가 생성한 `app/BcaWorkshop/main.py` 를 아래 내용으로 교체합니다.
-Lab 2 의 `coach()` 를 호출하는 진입점입니다.
+코드를 복사했으니 이제 각 Lab 의 기능을 실제로 연결합니다.
+
+**Guardrail 연결 — `app/BcaWorkshop/agents.py` 상단 수정**
+
+`agents.py` 상단의 module-level `model` 정의를 Guardrail 이 붙은 모델로 교체합니다.
+`model` 은 모든 전문 에이전트가 공유하므로, 여기 한 곳만 바꾸면 에이전트 4개에 Guardrail
+이 일괄 적용됩니다.
+
+```python
+# app/BcaWorkshop/agents.py 상단 — 기존 model 정의를 아래로 교체합니다
+import os
+from guardrail import create_guardrail, build_guarded_model
+
+# Guardrail 을 생성하고 모든 에이전트가 쓸 공통 모델에 붙입니다
+# GUARDRAIL_ID / GUARDRAIL_VERSION 환경변수가 있으면 재사용, 없으면 새로 생성합니다
+_gid = os.environ.get("GUARDRAIL_ID")
+_ver = os.environ.get("GUARDRAIL_VERSION")
+if not _gid:
+    _gid, _ver = create_guardrail()
+
+model = build_guarded_model(_gid, _ver)
+```
+
+> `create_guardrail()` 은 매번 새 리소스를 만듭니다. 워크샵에서는 Lab 4 에서 이미 만든
+> 리소스가 있으므로 `GUARDRAIL_ID` / `GUARDRAIL_VERSION` 환경변수로 재사용하는 것이 좋습니다.
+
+```bash
+# Lab 4 에서 만든 Guardrail ID·버전 조회
+aws bedrock list-guardrails --region us-west-2 \
+  --query 'guardrails[?name==`bca-safety`].[id,version]' --output table
+```
+
+배포·개발 서버 실행 시 환경변수로 넘깁니다:
+
+```bash
+export GUARDRAIL_ID=<Lab 4 에서 만든 guardrailId>
+export GUARDRAIL_VERSION=<version, 보통 "DRAFT">
+```
+
+---
+
+**Memory 연결 — `app/BcaWorkshop/main.py` 수정**
+
+`invoke` 함수에서 코칭 결과를 Memory 에 저장합니다. `user_sub` 는 Cognito 토큰에서 추출하고
+`session_id` 는 호출마다 전달받습니다.
+
+```python
+# app/BcaWorkshop/main.py (memory 연동 추가)
+import os
+from agents import coach
+from memory_store import save_session
+from bedrock_agentcore import BedrockAgentCoreApp
+
+app = BedrockAgentCoreApp()
+
+MEMORY_ID = os.environ.get("MEMORY_ID")   # Lab 3 에서 만든 memory_id
+
+
+@app.entrypoint
+def invoke(payload):
+    """Runtime 진입점.
+
+    Args:
+        payload: {
+            "measurement": {...},      # 정규화된 측정값
+            "user_sub": "...",         # Cognito sub (사용자 격리 키)
+            "session_id": "..."        # 회차 식별자 (예: "session-2026-08-14")
+        }
+    """
+    measurement = payload["measurement"]
+    user_sub = payload.get("user_sub", "unknown")
+    session_id = payload.get("session_id", "session-default")
+
+    result = coach(measurement)
+
+    # 코칭 완료 후 이번 회차를 Memory 에 저장합니다
+    if MEMORY_ID and user_sub != "unknown":
+        save_session(MEMORY_ID, user_sub, session_id, measurement)
+
+    return {"result": result}
+```
+
+`MEMORY_ID` 환경변수로 넘깁니다:
+
+```bash
+export MEMORY_ID=<Lab 3 에서 만든 memory_id>
+```
+
+---
+
+> **캐시는 Action Item 으로 남깁니다.** Lab 4 의 `cache_demo.py` 는 `boto3 converse()` 의
+> `cachePoint` 를 직접 씁니다. Strands `BedrockModel` 은 현재 `cachePoint` 를 지원하지
+> 않으므로, 전문 에이전트에 캐시를 붙이려면 Strands 의 raw Bedrock 클라이언트를 커스터마이징
+> 해야 합니다. 이 워크샵의 시간 범위를 벗어나므로 `99_cleanup.md` 의 Action Items 에서
+> 이어갑니다.
+
+**정상 동작 확인**: `agents.py` 를 import 해도 오류가 없고, `GUARDRAIL_ID` 환경변수를 설정한
+상태에서 `main.py` 를 실행하면 `create_guardrail` 이 다시 호출되지 않습니다.
+
+### Step 3: entrypoint 확인
+
+Step 2 에서 Memory 연동까지 포함한 `main.py` 를 이미 작성했습니다. TODO ①② 빈칸만 채우면
+됩니다.
 
 ```python
 # app/BcaWorkshop/main.py
@@ -169,15 +270,18 @@ if __name__ == "__main__":
 > Guardrail(Lab 4)을 붙인 모델을 쓰려면 `guardrail.py` 의 `build_guarded_model` 을
 > `agents.py` 의 모델 초기화 부분에 연결하세요.
 
-### Step 3: 로컬 테스트
+### Step 4: 로컬 테스트
 
 배포 전에 로컬에서 서비스 컨트랙트를 확인합니다.
+Step 2 에서 설정한 환경변수를 함께 넘깁니다.
 
 > **포트 충돌 시**: 워크샵 환경에서 8080·8081 은 이미 사용 중일 수 있습니다. `--port` 로
 > 다른 포트를 지정하고 curl 도 같은 포트를 쓰세요.
 
 ```bash
 # 터미널 1 — BcaWorkshop/ 루트에서 실행
+GUARDRAIL_ID=$GUARDRAIL_ID GUARDRAIL_VERSION=$GUARDRAIL_VERSION \
+MEMORY_ID=$MEMORY_ID \
 agentcore dev --port 8082 --no-browser
 ```
 
@@ -195,7 +299,7 @@ curl -X POST http://localhost:8082/invocations \
 **정상 동작 확인**: `/invocations` 가 200 과 `result` 를 반환합니다.
 확인 후 터미널 1에서 `Ctrl+C` 로 서버를 종료합니다.
 
-### Step 4: Observability 활성화
+### Step 5: Observability 활성화
 
 CloudWatch Transaction Search 를 켠 뒤 배포하면 트레이스가 수집됩니다. 이미 의존성에
 `aws-opentelemetry-distro` 를 넣었으므로 자동 계측됩니다.
@@ -206,7 +310,7 @@ aws xray update-trace-segment-destination \
   --destination CloudWatchLogs --region us-west-2
 ```
 
-### Step 5: 배포와 호출
+### Step 6: 배포와 호출
 
 실행 역할을 지정해 배포합니다.
 
@@ -231,7 +335,9 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 ## 검증
 
 - [ ] `agentcore dev` 로 로컬 `/invocations` 가 200 반환
-- [ ] `agent_runtime.py` 에 `@app.entrypoint` 진입점 존재
+- [ ] `agents.py` 의 `model` 이 `build_guarded_model()` 로 교체됨 (Guardrail 연결)
+- [ ] `main.py` 의 `invoke` 가 `save_session()` 을 호출함 (Memory 연결)
+- [ ] `main.py` 에 `@app.entrypoint` 진입점 존재
 - [ ] 배포 시 `AgentRuntimeRoleArn` 을 실행 역할로 지정
 - [ ] `agentcore invoke` 가 코칭 결과 반환
 - [ ] CloudWatch Transaction Search 에 호출 트레이스가 수집됨
@@ -249,7 +355,10 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 | curl 응답이 너무 오래 걸림 | Supervisor 가 에이전트 3개 순차 호출 | 정상. 수십 초 기다리세요 |
 | 배포가 AccessDenied | 실행 역할 권한 부족 | `AgentRuntimeRoleArn` 을 지정했는지 확인. 임의 역할 금지 |
 | `invoke` 가 ModuleNotFound (agents) | Lab 2 코드 미복사 | Step 1 의 `cp ../lab2/agents.py app/BcaWorkshop/` 를 실행했는지 확인 |
-| 트레이스가 안 보임 | Transaction Search 미활성 | Step 4 명령 실행 후 재배포. 수집까지 수 분 지연 |
+| 트레이스가 안 보임 | Transaction Search 미활성 | Step 5 명령 실행 후 재배포. 수집까지 수 분 지연 |
+| `ImportError: guardrail` | guardrail.py 미복사 | Step 1 의 `cp ../lab4/guardrail.py app/BcaWorkshop/` 확인 |
+| `ImportError: memory_store` | memory_store.py 미복사 | Step 1 의 `cp ../lab3/memory_store.py app/BcaWorkshop/` 확인 |
+| Guardrail 이 매 시작마다 새로 생성됨 | GUARDRAIL_ID 환경변수 미설정 | Step 2 안내대로 `export GUARDRAIL_ID=...` 설정 |
 | 콜드스타트가 김 | 첫 배포는 의존성 설치 | 이후 업데이트는 zip 의존성 재사용으로 빨라짐 |
 
 ---
