@@ -280,6 +280,16 @@ aws ecs create-express-gateway-service \
 > IAM 역할은 생성 직후 전파에 시간이 걸립니다. 첫 호출이 assume-role 오류로 실패하면 약 1분
 > 뒤 다시 시도하세요.
 
+> **Dockerfile 을 고쳐서 이미지를 다시 push 했다면** — 같은 `:latest` 태그로 push해도
+> 서비스가 자동으로 새 이미지를 가져오지 않습니다. 아래 명령으로 새 배포를 강제하세요.
+>
+> ```bash
+> aws ecs update-express-gateway-service \
+>   --service-arn "$SERVICE_ARN" \
+>   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
+>   --region us-west-2
+> ```
+
 ### Step 6: 콜백 URL 갱신
 
 Express 가 발급한 URL 로 Cognito 콜백을 갱신합니다. URL 은 배포 전에는 알 수 없으므로 배포
@@ -357,6 +367,7 @@ aws cloudformation deploy \
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
 | `HostedCallbackUrl` 갱신이 `must contain a scheme` 오류 | `APP_URL` 에 `https://` 누락 | `ingressPaths[].endpoint` 가 스킴 없이 반환될 수 있음. Step 6 의 스킴 보정 코드 확인 |
+| 배포된 컨테이너에서 `StreamlitMissingAuthlibError` | Dockerfile 수정 전에 빌드한 이미지가 남아 있음 | Dockerfile 의 `pip install` 이 `"streamlit[auth]"` 인지 확인 후 `docker build --no-cache` 로 재빌드·재push, ECS 서비스도 새 이미지로 갱신 |
 | 화면에 결과지 이름이 뜸 | 표시용/검증용 혼동 | 화면에는 Cognito 이름만. 결과지 이름은 대조에만 |
 
 ---
