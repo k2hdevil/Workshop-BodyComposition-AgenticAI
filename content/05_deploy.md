@@ -84,6 +84,17 @@ uv add bedrock-agentcore strands-agents aws-opentelemetry-distro
 npm install -g @aws/agentcore   # AgentCore CLI
 ```
 
+> **참고 — npm 설치 오류가 나도 CLI 가 이미 있을 수 있습니다.** 워크샵 이미지에는
+> `@aws/agentcore` 가 사전 설치되어 있어, 재설치 시 기존 파일의 소유권 충돌로
+> `EACCES` 오류가 날 수 있습니다. 오류가 보이면 CLI 가 실제로 동작하는지 먼저 확인하세요.
+>
+> ```bash
+> agentcore --version   # 버전이 출력되면 정상 — npm 오류는 무시하고 다음 단계로 이동
+> ```
+>
+> 명령을 찾지 못한다면 `sudo rm -rf ~/.nvm/versions/node/$(node -v)/lib/node_modules/@aws/agentcore`
+> 로 기존 파일을 지운 뒤 `npm install -g @aws/agentcore` 를 다시 실행하세요.
+
 ### Step 1: entrypoint 작성
 
 `lab5/agent_runtime.py` 를 만듭니다. Lab 2 의 `coach()` 를 호출하는 진입점입니다.
