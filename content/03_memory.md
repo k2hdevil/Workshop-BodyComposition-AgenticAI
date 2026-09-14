@@ -179,7 +179,7 @@ user-a 의 3회차를 저장한 뒤 요약이 추출되기를 잠시 기다립�
 MEMORY_ROLE=$MEMORY_ROLE uv run python -c "
 import json, time, memory_store as ms
 mid = ms.create_trend_memory()
-print('memory_id:', mid)
+print('memory_id:', mid)   # 이 값을 Step 5 에서 재사용합니다 — 화면에서 복사해 두세요
 
 SUB = 'user-a-sub-0001'   # 실제로는 Cognito sub. 이름을 쓰지 않습니다
 gt = '../sample-data/ground-truth'
@@ -213,20 +213,20 @@ print('delta:', ms.compute_delta(brief(first), brief(latest)))
 됩니다.** 이 앱은 본인이 본인 결과지를 보는 앱이므로, 이 격리가 깨지면 타인의 건강 이력이
 노출됩니다. 말로 끝내지 않고 직접 확인합니다.
 
-같은 Memory 를 방금 만들었다면 그 `memory_id` 를 재사용하고, 새 셸이면 Step 4 처럼 다시
-만들어 user-a 3회차를 저장한 상태에서 실행하세요. user-a 의 `sub` 로는 결과가 나오고,
-아무것도 저장하지 않은 user-b 의 `sub` 로는 비어 있어야 합니다.
+Step 4 에서 만든 Memory 를 그대로 재사용합니다. 새로 만들거나 3회차를 다시 저장하지 않습니다
+— user-a 데이터는 이미 Step 4 에서 저장돼 있습니다. Step 4 가 출력한 `memory_id` 를
+환경변수 `MEMORY_ID` 로 넘기세요. user-a 의 `sub` 로는 결과가 나오고, 아무것도 저장하지 않은
+user-b 의 `sub` 로는 비어 있어야 합니다.
 
 ```bash
-MEMORY_ROLE=$MEMORY_ROLE uv run python -c "
-import json, memory_store as ms
+# Step 4 출력의 memory_id 를 그대로 붙여넣습니다
+export MEMORY_ID=<Step 4 가 출력한 memory_id>
 
-# Step 4 에서 만든 Memory 를 그대로 쓰거나, 없으면 새로 만들어 user-a 3회차를 저장합니다
-mid = ms.create_trend_memory()
-gt = '../sample-data/ground-truth'
+MEMORY_ID=$MEMORY_ID uv run python -c "
+import os, memory_store as ms
+
+mid = os.environ['MEMORY_ID']   # Step 4 에서 출력한 memory_id 재사용
 A_SUB, B_SUB = 'user-a-sub-0001', 'user-b-sub-0002'   # 서로 다른 Cognito sub
-for seq in ('01','02','03'):
-    ms.save_session(mid, A_SUB, f'session-{seq}', json.load(open(f'{gt}/user-a-session-{seq}.json')))
 
 # 같은 session_id 로 두 사용자의 네임스페이스를 조회해 대조합니다
 a_hits = ms.get_trend(mid, A_SUB, 'session-03')   # user-a 본인 — 결과가 있어야 함
@@ -245,9 +245,12 @@ print('격리 확인 OK — 다른 sub 로는 조회되지 않음')
 "
 ```
 
+> `MEMORY_ID` 가 비어 있거나 틀리면 조회가 실패합니다. Step 4 출력의 `memory_id:` 뒤 값을
+> 그대로 붙여넣었는지 확인하세요.
+
 **정상 동작 확인**: `user-b sub 조회 건수: 0` 이 나오고 `assert` 가 통과합니다. user-a 는
-방금 저장했으므로 요약이 추출되면 건수가 1 이상으로 올라갑니다(추출 지연 시 user-a 는 0 일
-수 있으나, 격리 검증의 핵심은 **user-b 가 항상 0** 이라는 점입니다).
+Step 4 에서 저장했으므로 요약이 추출되면 건수가 1 이상으로 올라갑니다(추출 지연 시 user-a 는
+0 일 수 있으나, 격리 검증의 핵심은 **user-b 가 항상 0** 이라는 점입니다).
 
 > 참고: `session_id` 는 회차를 나누는 값이고, 사용자 격리는 `actor_id`(`sub`)가 담당합니다.
 > 그래서 같은 `session-03` 을 조회해도 `sub` 가 다르면 서로 다른 네임스페이스가 됩니다.
