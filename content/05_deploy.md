@@ -154,24 +154,43 @@ model = BedrockModel(model_id=MODEL_ID, temperature=0.2)         # ← 이 줄�
 # 위 한 줄을 아래 블록으로 교체합니다
 import os
 from guardrail import create_guardrail
-from strands.models.bedrock import BedrockModel, CacheConfig   # BedrockModel import 경로도 변경
+from strands.models.bedrock import BedrockModel, CacheConfig
 
-# GUARDRAIL_ID 환경변수가 있으면 Lab 4 리소스를 재사용, 없으면 새로 생성합니다
+# module-level 에서는 환경변수만 읽습니다 — import 시점에 API 를 호출하면
+# Runtime 이 30초 초기화 제한을 초과해 시작 실패합니다.
 _gid = os.environ.get("GUARDRAIL_ID")
 _ver = os.environ.get("GUARDRAIL_VERSION")
-if not _gid:
-    _gid, _ver = create_guardrail()
 
-# Guardrail + 캐시를 한 번에 적용합니다
-# temperature=0.2 는 처방 일관성, cache_config 는 시스템 프롬프트·도구 정의 자동 캐시
-model = BedrockModel(
-    model_id=MODEL_ID,
-    guardrail_id=_gid,
-    guardrail_version=_ver,
-    temperature=0.2,
-    cache_config=CacheConfig(strategy="auto"),
-)
+
+def _make_model():
+    """BedrockModel 을 생성합니다. 환경변수가 없으면 첫 호출 시 Guardrail 을 생성합니다."""
+    global _gid, _ver
+    if not _gid:
+        _gid, _ver = create_guardrail()
+    return BedrockModel(
+        model_id=MODEL_ID,
+        guardrail_id=_gid,
+        guardrail_version=_ver,
+        temperature=0.2,
+        cache_config=CacheConfig(strategy="auto"),
+    )
 ```
+
+그리고 `analysis_specialist`, `exercise_specialist`, `nutrition_specialist` 세 함수 내부에서
+`model=model` 대신 `model=_make_model()` 을 씁니다. `build_supervisor()` 도 동일하게
+바꿉니다.
+
+```python
+# 변경 전
+agent = Agent(model=model, system_prompt=ANALYSIS_PROMPT, tools=[])
+
+# 변경 후
+agent = Agent(model=_make_model(), system_prompt=ANALYSIS_PROMPT, tools=[])
+```
+
+> **환경변수를 설정하면 더 빠릅니다.** `GUARDRAIL_ID` / `GUARDRAIL_VERSION` 이 Runtime
+> 환경에 있으면 `create_guardrail()` 을 부르지 않아 첫 호출이 빠릅니다. Step 6 배포 전에
+> `agentcore.json` 에 설정하는 것을 권장합니다(아래 Step 6 참고).
 
 > `create_guardrail()` 은 매번 새 리소스를 만듭니다. 워크샵에서는 Lab 4 에서 이미 만든
 > 리소스가 있으므로 `GUARDRAIL_ID` / `GUARDRAIL_VERSION` 환경변수로 재사용하는 것이 좋습니다.
@@ -306,12 +325,16 @@ aws xray update-trace-segment-destination \
 ### Step 6: 배포와 호출
 
 실행 역할을 `agentcore.json` 에 설정한 뒤 배포합니다. `agentcore deploy` 는 `--execution-role`
-플래그를 지원하지 않고 설정 파일에서 읽습니다.
+플래그를 지원하지 않고 설정 파일에서 읽습니다. Guardrail 환경변수도 함께 넣어
+Runtime 초기화 시 API 호출을 막습니다.
 
 ```bash
-# agentcore/agentcore.json 의 runtimes[0] 에 executionRoleArn 을 추가합니다
+# agentcore/agentcore.json 의 runtimes[0] 에 실행 역할과 환경변수를 추가합니다
 jq --arg role "$RUNTIME_ROLE" \
-  '.runtimes[0].executionRoleArn = $role' \
+   --arg gid "$GUARDRAIL_ID" \
+   --arg ver "$GUARDRAIL_VERSION" \
+  '.runtimes[0].executionRoleArn = $role |
+   .runtimes[0].environmentVariables = {"GUARDRAIL_ID": $gid, "GUARDRAIL_VERSION": $ver}' \
   agentcore/agentcore.json > /tmp/ac.json && mv /tmp/ac.json agentcore/agentcore.json
 
 # 배포 — uv 프로젝트라 Direct Code Deploy(zip)로 배포됩니다
