@@ -178,9 +178,15 @@ if __name__ == "__main__":
 > 다른 포트를 지정하고 curl 도 같은 포트를 쓰세요.
 
 ```bash
-# BcaWorkshop/ 루트에서 실행 — 로그를 화면과 파일에 동시 출력
-agentcore dev --port 8082 --no-browser 2>&1 | tee agentcore-dev.log
+# BcaWorkshop/ 루트에서 실행
+agentcore dev --port 8082 --no-browser
 ```
+
+> 로그를 파일로 남기려면 다른 터미널에서 백그라운드로 실행하세요.
+> ```bash
+> agentcore dev --port 8082 --no-browser > agentcore-dev.log 2>&1 &
+> tail -f agentcore-dev.log   # 실시간 확인. 종료: kill %1
+> ```
 
 다른 터미널에서 호출합니다. Supervisor 가 에이전트 3개를 순차 호출하므로
 **응답까지 수십 초가 걸립니다** — 기다리거나 `-m 120` 으로 타임아웃을 늘리세요.
