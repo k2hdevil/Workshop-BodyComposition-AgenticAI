@@ -95,7 +95,20 @@ npm install -g @aws/agentcore   # AgentCore CLI
 > 명령을 찾지 못한다면 `sudo rm -rf ~/.nvm/versions/node/$(node -v)/lib/node_modules/@aws/agentcore`
 > 로 기존 파일을 지운 뒤 `npm install -g @aws/agentcore` 를 다시 실행하세요.
 
-### Step 1: entrypoint 작성
+### Step 1: 프로젝트 스캐폴드 — agentcore create
+
+`agentcore dev` 와 `agentcore deploy` 는 모두 `agentcore.json` 이 있는 AgentCore 프로젝트
+안에서만 동작합니다. 먼저 스캐폴드를 만듭니다.
+
+```bash
+# 프레임워크: Strands Agents 선택
+agentcore create
+```
+
+`agentcore create` 는 대화형으로 프레임워크·모델·이름을 묻습니다. **프레임워크는 Strands
+Agents** 를 선택하세요. 완료 후 현재 디렉터리에 `agentcore/agentcore.json` 이 생깁니다.
+
+### Step 2: entrypoint 작성
 
 `lab5/agent_runtime.py` 를 만듭니다. Lab 2 의 `coach()` 를 호출하는 진입점입니다.
 
@@ -130,7 +143,7 @@ if __name__ == "__main__":
 > `coach` 는 Lab 2 `agents.py` 의 함수입니다. 이 프로젝트로 `agents.py` 를 복사해 오거나
 > import 경로를 맞추세요. Guardrail(Lab 4)을 붙인 모델을 쓰면 안전 장치가 함께 배포됩니다.
 
-### Step 2: 로컬 테스트
+### Step 3: 로컬 테스트
 
 배포 전에 로컬에서 서비스 컨트랙트를 확인합니다.
 
@@ -145,7 +158,7 @@ curl -X POST http://localhost:8080/invocations \
 
 **정상 동작 확인**: `/invocations` 가 200 과 `result` 를 반환합니다. 확인 후 `Ctrl+C`.
 
-### Step 3: Observability 활성화
+### Step 4: Observability 활성화
 
 CloudWatch Transaction Search 를 켠 뒤 배포하면 트레이스가 수집됩니다. 이미 의존성에
 `aws-opentelemetry-distro` 를 넣었으므로 자동 계측됩니다.
@@ -156,15 +169,11 @@ aws xray update-trace-segment-destination \
   --destination CloudWatchLogs --region us-west-2
 ```
 
-### Step 4: 배포와 호출
+### Step 5: 배포와 호출
 
-`agentcore create` 로 스캐폴드를 만들고(프레임워크는 Strands 선택), 실행 역할을 지정한 뒤
-배포합니다.
+실행 역할을 지정해 배포합니다.
 
 ```bash
-# 스캐폴드 (프레임워크: Strands Agents 선택)
-agentcore create
-
 # 배포 — uv 프로젝트라 Direct Code Deploy(zip)로 배포됩니다
 # TODO ③: 배포 명령을 완성하세요
 agentcore ________ --execution-role "$RUNTIME_ROLE"
@@ -201,7 +210,7 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 | `agentcore dev` 가 포트 오류 | 8080 사용 중 | 8080 을 쓰는 프로세스 종료 후 재실행 |
 | 배포가 AccessDenied | 실행 역할 권한 부족 | `AgentRuntimeRoleArn` 을 지정했는지 확인. 임의 역할 금지 |
 | `invoke` 가 ModuleNotFound (agents) | Lab 2 코드 미포함 | `agents.py` 를 프로젝트에 복사했는지 확인 |
-| 트레이스가 안 보임 | Transaction Search 미활성 | Step 3 명령 실행 후 재배포. 수집까지 수 분 지연 |
+| 트레이스가 안 보임 | Transaction Search 미활성 | Step 4 명령 실행 후 재배포. 수집까지 수 분 지연 |
 | 콜드스타트가 김 | 첫 배포는 의존성 설치 | 이후 업데이트는 zip 의존성 재사용으로 빨라짐 |
 
 ---
