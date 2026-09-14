@@ -222,6 +222,7 @@ TODO ①② 를 채우고, Step 2 에서 설정한 환경변수(`MEMORY_ID`)를 
 
 ```python
 # app/BcaWorkshop/main.py
+import json
 import os
 from agents import coach
 from memory_store import save_session
@@ -239,20 +240,28 @@ MEMORY_ID = os.environ.get("MEMORY_ID")   # Lab 3 에서 만든 memory_id
 def invoke(payload):
     """Runtime 진입점.
 
+    agentcore invoke 는 입력을 {"prompt": "..."} 형태로 전달합니다.
+    prompt 에 JSON 문자열을 넣으면 measurement 를 파싱해 코칭을 실행합니다.
+
     Args:
-        payload: {
-            "measurement": {...},      # 정규화된 측정값
-            "user_sub": "...",         # Cognito sub (사용자 격리 키, 이름 아님)
-            "session_id": "..."        # 회차 식별자 (예: "session-2026-08-14")
-        }
+        payload: {"prompt": "<JSON 문자열>", "user_sub": "...", "session_id": "..."}
     """
-    measurement = payload["measurement"]
-    user_sub = payload.get("user_sub", "unknown")
-    session_id = payload.get("session_id", "session-default")
+    # agentcore invoke 가 문자열을 "prompt" 키로 감싸 전달합니다
+    raw = payload.get("prompt", "{}")
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return {"error": "prompt 는 JSON 문자열이어야 합니다"}
+
+    measurement = data.get("measurement")
+    if not measurement:
+        return {"error": "measurement 키가 없습니다"}
+
+    user_sub = payload.get("user_sub", data.get("user_sub", "unknown"))
+    session_id = payload.get("session_id", data.get("session_id", "session-default"))
 
     result = coach(measurement)
 
-    # 코칭 완료 후 이번 회차를 Memory 에 저장합니다
     if MEMORY_ID and user_sub != "unknown":
         save_session(MEMORY_ID, user_sub, session_id, measurement)
 
@@ -348,6 +357,9 @@ agentcore ________ -y
 agentcore invoke '{"measurement": {"obesity_analysis": {"pbf_percent": {"value": 32.5}}}}'
 # 예상: {"result": "...코칭 결과..."}
 ```
+
+> `agentcore invoke` 는 인자를 `{"prompt": "..."}` 로 감싸 Runtime 에 전달합니다.
+> 위 JSON 문자열이 `payload["prompt"]` 로 들어오고, `main.py` 에서 파싱합니다.
 
 **정상 동작 확인**: `agentcore invoke` 가 코칭 결과를 반환하고, CloudWatch 콘솔의
 Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함)가 보입니다.
