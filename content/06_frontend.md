@@ -64,7 +64,7 @@ ID 토큰은 403(`insufficient_scope`)입니다. 기본값은 아무 토큰도 �
 ```bash
 mkdir -p lab6 && cd lab6
 uv init --python 3.13 .
-uv add streamlit boto3
+uv add "streamlit[auth]" boto3
 ```
 
 core 스택에서 인증 값들을 가져옵니다.
@@ -180,7 +180,7 @@ ECS Express Mode 는 컨테이너 이미지를 입력으로 받습니다. Stream
 FROM python:3.13-slim
 WORKDIR /app
 COPY . /app
-RUN pip install --no-cache-dir streamlit boto3
+RUN pip install --no-cache-dir "streamlit[auth]" boto3
 
 # TODO ⑤: Streamlit 이 실제로 여는 포트를 노출하세요(기본 8501)
 EXPOSE ________
@@ -314,6 +314,7 @@ aws cloudformation deploy \
 | 토큰을 꺼낼 수 없음 | `expose_tokens` 누락 | `secrets.toml` 에 `expose_tokens = ["access"]` 추가 |
 | Gateway 호출 403 | ID 토큰 사용 | 액세스 토큰을 넘김. 그래도 실패 시 Runtime 경유로 우회 |
 | `st.login` 이 없음 | Streamlit 버전 낮음 | Streamlit 1.42+ 로 업그레이드 |
+| `StreamlitMissingAuthlibError` | authlib 미설치 | `uv add "streamlit[auth]"` 실행 |
 | Express 생성이 assume-role 오류 | IAM 역할 전파 지연 | 약 1분 후 재시도 |
 | 헬스체크 실패로 ACTIVE 안 됨 | 포트·경로 불일치 | `containerPort` 8501, `--health-check-path /_stcore/health` 확인 |
 | 태스크가 `exec format error` 로 안 뜸 | arm64 이미지를 x86 Fargate 에 배포 | `--platform linux/amd64` 로 다시 빌드·push |
