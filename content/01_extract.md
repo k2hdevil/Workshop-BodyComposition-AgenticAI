@@ -103,7 +103,8 @@ uv run python ../sample-data/tools/verify_gateway_mcp.py "$GATEWAY_URL" ../acces
 (3) Lambda 가 MCP 를 구현하지 않았는데도 Gateway 가 호출을 전달함. 지금 Lambda 는
 자리표시자라 `NOT_IMPLEMENTED` 를 돌려줍니다. 이제 이 Lambda 의 알맹이를 만듭니다.
 
-> gateway 스택을 배포하지 않았다면 이 Step 을 건너뛰고 Step 2 부터 in-process 로 진행하세요.
+> gateway 스택은 `00_setup.md` Step 4 에서 배포해 `GatewayStatus=READY` 상태여야 합니다.
+> 이 워크샵의 추출은 Gateway MCP 경유가 필수 경로입니다.
 
 ### Step 2: 추출 도구 뼈대 — 1차 pdfplumber 파싱
 
@@ -349,9 +350,11 @@ print(index.verify_identity('김도현','박지은'))   # BLOCK (타인)
 **정상 동작 확인**: 디지털본은 `pdfplumber`, 스캔본은 `vision` 경로를 타고,
 본인 확인이 `PASS / WARN / BLOCK` 세 값을 각각 반환합니다.
 
-### (선택) Lambda 에 배포
+### Step 6: Lambda 에 배포
 
-gateway 스택을 배포했다면, 작성한 코드로 자리표시자 Lambda 를 교체합니다.
+작성한 코드로 자리표시자 Lambda 를 교체합니다. 이 워크샵의 추출은 Gateway MCP 를 반드시
+경유하므로(Step 1 참고), Lambda 교체는 Lab 을 마무리하는 **필수 단계**입니다 — 교체해야
+Gateway 호출이 `NOT_IMPLEMENTED` 대신 실제 측정값을 돌려줍니다.
 아래 패키징 명령은 `02-gateway.yaml` 의 스택 출력값 `BuildZipCommand` 와 글자 그대로
 같습니다(그래서 `pip` 를 씁니다 — 출력값을 복사해 쓸 수 있게).
 
@@ -380,7 +383,7 @@ aws lambda update-function-code \
 - [ ] `user-a-session-01.pdf`(스캔본) 가 `source=vision` 으로 추출됨
 - [ ] 두 케이스 모두 `status=OK` (검증 통과)
 - [ ] 본인 확인이 `김도현/김도현→PASS`, `김도현/김도원→WARN`, `김도현/박지은→BLOCK`
-- [ ] (선택) Lambda 교체 후 `verify_gateway_mcp.py` 가 실제 측정값 반환
+- [ ] Lambda 교체 후 `verify_gateway_mcp.py` 가 실제 측정값 반환
 
 ---
 

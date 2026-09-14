@@ -74,14 +74,16 @@ Amazon Bedrock AgentCore 는 에이전트를 운영하기 위한 관리형 구�
 | 구성 요소 | 역할 | 이 워크샵에서 | 만드는 주체 |
 |-----------|------|---------------|-------------|
 | **Runtime** | 에이전트 실행 환경 | Supervisor + 전문 에이전트 호스팅 | 참가자(Lab 5) |
-| **Gateway** | 도구를 MCP 로 노출 | Lambda 추출기를 MCP 도구로 | 사전 프로비저닝 |
+| **Gateway** | 도구를 MCP 로 노출 | Lambda 추출기를 MCP 도구로 | 참가자(스택 배포·Step 4) |
 | **Memory** | 대화·이벤트 장기 기억 | 회차별 측정 이력 | 참가자(Lab 3) |
 | **Identity** | 인바운드/아웃바운드 인증 | Cognito JWT 인바운드 | 사전 프로비저닝 |
 | **Observability** | 추적·로그·메트릭 | X-Ray · CloudWatch | 참가자(Lab 5) |
 
 > Memory · Guardrail · Runtime 은 **참가자가 직접 만듭니다.** 전략 설계와 정책 설계가
 > 학습의 본체라서 템플릿에 박아두면 읽고 지나갈 뿐입니다. 반면 Gateway · Cognito 는
-> 이미 만들어진 것에 **연결하고 확인**하는 데까지만 다룹니다(4시간 제약의 의도적 선택).
+> **CloudFormation 템플릿으로 배포한 뒤 연결하고 확인**하는 데까지만 다룹니다 — 리소스 정의를
+> 손으로 작성하지는 않습니다(4시간 제약의 의도적 선택). Gateway 는 Lab 1 의 추출이 반드시
+> 경유하는 경로이므로 Step 4 배포가 **필수**입니다.
 
 ### Agent-as-Tool 패턴
 
@@ -270,7 +272,7 @@ Lab 1 에서 이 파일을 그대로 씁니다.
 - [ ] `bca-workshop-core` 스택이 `CREATE_COMPLETE`
 - [ ] core 출력값 표에 `DataBucketName` · `UserPoolId` · `AgentRuntimeRoleArn` 존재
 - [ ] `s3 ls .../measurements/` 에 PDF 4건
-- [ ] (선택) `bca-workshop-gateway` 스택의 `GatewayStatus` 가 `READY`
+- [ ] `bca-workshop-gateway` 스택의 `GatewayStatus` 가 `READY`
 - [ ] `access-token.txt` 에 `eyJ` 로 시작하는 액세스 토큰 저장
 
 ---

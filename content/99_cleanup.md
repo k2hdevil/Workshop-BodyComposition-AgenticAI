@@ -73,10 +73,10 @@ aws s3 ls "s3://$BUCKET" --region us-west-2
 
 ### Step 3: 스택 삭제 (생성의 역순)
 
-gateway(선택 스택)를 먼저, core 를 나중에 지웁니다.
+gateway 를 먼저, core 를 나중에 지웁니다(생성의 역순).
 
 ```bash
-# gateway 스택을 배포했다면 먼저 삭제
+# gateway 스택 먼저 삭제
 aws cloudformation delete-stack --stack-name bca-workshop-gateway --region us-west-2
 aws cloudformation wait stack-delete-complete --stack-name bca-workshop-gateway --region us-west-2
 
@@ -135,7 +135,7 @@ aws ecr delete-repository --repository-name bca-workshop-frontend \
 | Memory 삭제 권한 오류 | 자격 증명 부족 | 실습 계정 자격 증명으로 재시도 |
 | Express 서비스가 조회 안 됨 | Lab 6 미배포 | 배포하지 않았으면 건너뜁니다 |
 | ECR 삭제가 이미지 존재 오류 | 태그된 이미지가 남음 | `--force` 플래그로 이미지 포함 삭제 |
-| gateway 스택이 이미 없음 | 선택 스택 미배포 | 정상. core 만 삭제하면 됩니다 |
+| gateway 스택 삭제가 `does not exist` | 이미 삭제됨 | 정상. 이어서 core 를 삭제하면 됩니다 |
 
 ---
 

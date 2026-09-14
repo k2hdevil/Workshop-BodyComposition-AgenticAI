@@ -1,11 +1,12 @@
 # 인프라 배포
 
-참가자가 직접 배포합니다. 스택 두 개로 나뉘어 있고 **두 번째는 선택**입니다.
+참가자가 직접 배포합니다. 스택 두 개로 나뉘어 있고 **둘 다 필수**입니다. Lab 1 의 추출은
+Gateway MCP 를 반드시 경유하므로 gateway 스택이 없으면 Lab 1 을 진행할 수 없습니다.
 
 | 스택 | 파일 | 내용 | 생성 시간 | 필수 |
 |------|------|------|----------|------|
 | core | `01-core.yaml` | S3 · Cognito · IAM 역할 2개 | 약 2분 | **필수** |
-| gateway | `02-gateway.yaml` | 추출 Lambda · AgentCore Gateway · GatewayTarget | 약 3~5분 | 선택 |
+| gateway | `02-gateway.yaml` | 추출 Lambda · AgentCore Gateway · GatewayTarget | 약 3~5분 | **필수** |
 
 ## 왜 AgentCore 리소스가 템플릿에 없나
 
@@ -69,7 +70,7 @@ aws s3 ls "s3://$BUCKET/measurements/" --region us-west-2
 
 ---
 
-## 2. gateway 스택 배포 (선택)
+## 2. gateway 스택 배포 (필수)
 
 ```bash
 aws cloudformation deploy \
@@ -82,10 +83,12 @@ aws cloudformation deploy \
 
 `GatewayStatus` 출력이 `READY` 여야 호출됩니다. `CREATING` 이면 잠시 후 다시 확인하세요.
 
-### 이 스택을 건너뛰어도 됩니다
+### 이 스택은 Lab 1 의 전제 조건입니다
 
-Lab 1 은 **Gateway 경유 → 실패 시 in-process 추출** 순서로 폴백하도록 설계되어 있습니다.
-이 스택이 없거나 실패해도 실습은 진행됩니다. 대신 MCP · Gateway 부분만 건너뜁니다.
+Lab 1 의 추출은 **Gateway MCP 도구 호출**로 진행합니다. 참가자는 이 스택이 배포한
+자리표시자 Lambda 를 자신이 작성한 추출 코드로 교체하고, Gateway 를 통해 호출해 결과를
+확인합니다. 따라서 이 스택이 없으면 Lab 1 을 시작할 수 없습니다. `GatewayStatus` 가
+`READY` 가 될 때까지 기다린 뒤 Lab 1 로 넘어가세요.
 
 ### Lambda 는 자리표시자입니다
 
