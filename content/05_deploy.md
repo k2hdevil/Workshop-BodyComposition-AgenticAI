@@ -300,6 +300,9 @@ aws xray update-trace-segment-destination \
   --destination CloudWatchLogs --region us-west-2
 ```
 
+> `InvalidRequestException: The destination is already set to CloudWatchLogs` 오류가 나면
+> 이미 활성화된 것입니다. 정상이므로 다음 단계로 넘어가세요.
+
 ### Step 6: 배포와 호출
 
 실행 역할을 지정해 배포합니다.
