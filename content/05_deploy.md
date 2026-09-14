@@ -171,23 +171,21 @@ if __name__ == "__main__":
 
 ### Step 3: 로컬 테스트
 
-배포 전에 로컬에서 서비스 컨트랙트를 확인합니다. `agentcore dev` 를 실행할 때
-`2>&1 | tee agentcore-dev.log` 를 붙이면 서버 로그를 화면과 파일에 동시에 남길 수 있습니다.
+배포 전에 로컬에서 서비스 컨트랙트를 확인합니다.
 
 > **포트 충돌 시**: 워크샵 환경에서 8080·8081 은 이미 사용 중일 수 있습니다. `--port` 로
 > 다른 포트를 지정하고 curl 도 같은 포트를 쓰세요.
 
 ```bash
-# BcaWorkshop/ 루트에서 실행 — 백그라운드로 띄우고 로그를 실시간으로 봅니다
-agentcore dev --port 8082 --no-browser > agentcore-dev.log 2>&1 &
-tail -f agentcore-dev.log
+# 터미널 1 — BcaWorkshop/ 루트에서 실행 (로그가 이 터미널에 출력됩니다)
+agentcore dev --port 8082 --no-browser
 ```
 
-다른 터미널을 열지 않아도 됩니다 — 같은 터미널에서 `tail -f` 를 `Ctrl+C` 로 끊고
-아래 curl 을 실행하세요. 서버는 백그라운드에서 계속 동작합니다.
+터미널을 하나 더 열어 curl 을 실행합니다.
 
 ```bash
-curl -m 120 -X POST http://localhost:8082/invocations \
+# 터미널 2
+curl -X POST http://localhost:8082/invocations \
   -H "Content-Type: application/json" \
   -d '{"measurement": {"obesity_analysis": {"pbf_percent": {"value": 32.5}}}}'
 # Supervisor 가 에이전트 3개를 순차 호출하므로 응답까지 수십 초가 걸립니다
@@ -195,7 +193,7 @@ curl -m 120 -X POST http://localhost:8082/invocations \
 ```
 
 **정상 동작 확인**: `/invocations` 가 200 과 `result` 를 반환합니다.
-서버 종료는 `kill %1` 또는 `fg` 후 `Ctrl+C`.
+확인 후 터미널 1에서 `Ctrl+C` 로 서버를 종료합니다.
 
 ### Step 4: Observability 활성화
 
@@ -248,7 +246,7 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 | 배포가 Container 방식으로 감 | uv 미사용 | uv 프로젝트인지 확인. `uv.lock` 존재 시 CodeZip 권장 |
 | `agentcore dev` 가 포트 오류 | 8080 사용 중 | `--port 8082` 등 다른 포트 지정 후 curl 도 같은 포트로 |
 | `Unsupported method POST` 응답 | 다른 프로세스가 해당 포트 점유 | `lsof -i :8082` 로 사용 중인 포트 확인 후 빈 포트 사용 |
-| curl 응답이 너무 오래 걸림 | Supervisor 가 에이전트 3개 순차 호출 | 정상. `-m 120` 으로 타임아웃 늘리고 기다리세요 |
+| curl 응답이 너무 오래 걸림 | Supervisor 가 에이전트 3개 순차 호출 | 정상. 수십 초 기다리세요 |
 | 배포가 AccessDenied | 실행 역할 권한 부족 | `AgentRuntimeRoleArn` 을 지정했는지 확인. 임의 역할 금지 |
 | `invoke` 가 ModuleNotFound (agents) | Lab 2 코드 미복사 | Step 1 의 `cp ../lab2/agents.py app/BcaWorkshop/` 를 실행했는지 확인 |
 | 트레이스가 안 보임 | Transaction Search 미활성 | Step 4 명령 실행 후 재배포. 수집까지 수 분 지연 |
