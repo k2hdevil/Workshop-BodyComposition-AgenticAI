@@ -146,7 +146,7 @@ aws ecr delete-repository --repository-name bca-workshop-frontend \
 | 항목 | 내용 |
 |------|------|
 | 외부 헬스 데이터 연동 | AgentCore Identity 의 **outbound** 인증으로 삼성헬스·Apple Health 등 OAuth 대행. 이번 실습은 inbound(로그인)만 |
-| 컨텍스트 압축 | Strands `SummarizingConversationManager` 적용. Lab 4 에서 코드만 제공하고 실습은 캐시까지 |
+| 컨텍스트 압축 | Strands `SummarizingConversationManager` 적용. 캐시 경계 뒤 대화 이력만 재작성하도록 설정해 `CacheConfig` 와 공존시키기 |
 | Gateway·Cognito 직접 구성 | 사전 프로비저닝된 것을 직접 만들어 보기. Cedar 정책으로 세밀한 인가 |
 | 평가 축 확장 | 안전성(code-based evaluator), 운동↔식단 모순 감지, 라우팅 정확도. Lab 7 은 추출 정확도 1개 축만 |
 | 프로덕션 준비 | VPC Private Subnet + ALB, Multi-AZ, CI/CD 에 평가 통합, 감사 로그 장기 보존 |

@@ -193,12 +193,6 @@ export GUARDRAIL_VERSION=<version, 보통 "DRAFT">
 
 ---
 
-> **캐시는 Action Item 으로 남깁니다.** Lab 4 의 `cache_demo.py` 는 `boto3 converse()` 의
-> `cachePoint` 를 직접 씁니다. Strands `BedrockModel` 은 현재 `cachePoint` 를 지원하지
-> 않으므로, 전문 에이전트에 캐시를 붙이려면 Strands 의 raw Bedrock 클라이언트를 커스터마이징
-> 해야 합니다. 이 워크샵의 시간 범위를 벗어나므로 `99_cleanup.md` 의 Action Items 에서
-> 이어갑니다.
-
 **정상 동작 확인**: `agents.py` 를 import 해도 오류가 없고, `GUARDRAIL_ID` 환경변수를 설정한
 상태에서 `main.py` 를 실행하면 `create_guardrail` 이 다시 호출되지 않습니다.
 
