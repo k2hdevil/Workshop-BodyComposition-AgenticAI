@@ -177,7 +177,7 @@ if __name__ == "__main__":
 > 다른 포트를 지정하고 curl 도 같은 포트를 쓰세요.
 
 ```bash
-# 터미널 1 — BcaWorkshop/ 루트에서 실행 (로그가 이 터미널에 출력됩니다)
+# 터미널 1 — BcaWorkshop/ 루트에서 실행
 agentcore dev --port 8082 --no-browser
 ```
 
