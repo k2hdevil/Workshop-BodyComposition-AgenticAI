@@ -163,9 +163,14 @@ _ver = os.environ.get("GUARDRAIL_VERSION")
 
 
 def _make_model():
-    """BedrockModel 을 생성합니다. 환경변수가 없으면 첫 호출 시 Guardrail 을 생성합니다."""
+    """BedrockModel 을 생성합니다. 환경변수가 없으면 기존 Guardrail 을 조회하고, 없을 때만 생성합니다."""
     global _gid, _ver
     if not _gid:
+        # 1) 기존 bca-safety Guardrail 조회
+        from guardrail import get_existing_guardrail
+        _gid, _ver = get_existing_guardrail()
+    if not _gid:
+        # 2) 없으면 새로 생성
         _gid, _ver = create_guardrail()
     return BedrockModel(
         model_id=MODEL_ID,
@@ -174,6 +179,36 @@ def _make_model():
         temperature=0.2,
         cache_config=CacheConfig(strategy="auto"),
     )
+```
+
+그리고 `guardrail.py` 에 조회 함수를 추가합니다.
+
+```python
+# lab4/guardrail.py (이어서)
+
+def get_existing_guardrail(name="bca-safety"):
+    """이미 존재하는 Guardrail 을 이름으로 조회합니다."""
+    resp = bedrock.list_guardrails()
+    for g in resp.get("guardrails", []):
+        if g["name"] == name:
+            return g["id"], g["version"]
+    return None, None
+```
+
+`app/BcaWorkshop/guardrail.py` 에도 같은 함수를 추가합니다.
+
+```bash
+cat >> app/BcaWorkshop/guardrail.py << 'EOF'
+
+
+def get_existing_guardrail(name="bca-safety"):
+    """이미 존재하는 Guardrail 을 이름으로 조회합니다."""
+    resp = bedrock.list_guardrails()
+    for g in resp.get("guardrails", []):
+        if g["name"] == name:
+            return g["id"], g["version"]
+    return None, None
+EOF
 ```
 
 그리고 `analysis_specialist`, `exercise_specialist`, `nutrition_specialist`, `build_supervisor`
