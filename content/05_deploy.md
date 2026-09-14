@@ -176,25 +176,13 @@ def _make_model():
     )
 ```
 
-그리고 `analysis_specialist`, `exercise_specialist`, `nutrition_specialist` 세 함수 내부에서
-`model=model` 대신 `model=_make_model()` 을 씁니다. `build_supervisor()` 도 동일하게
-바꿉니다.
-
-```python
-# 변경 전
-agent = Agent(model=model, system_prompt=ANALYSIS_PROMPT, tools=[])
-
-# 변경 후
-agent = Agent(model=_make_model(), system_prompt=ANALYSIS_PROMPT, tools=[])
-```
-
-`analysis_specialist`, `exercise_specialist`, `nutrition_specialist`, `build_supervisor`
-4곳 모두 바꿔야 합니다. 아래 명령으로 한 번에 교체할 수 있습니다.
+그리고 `analysis_specialist`, `exercise_specialist`, `nutrition_specialist`, `build_supervisor`
+4곳의 `model=model` 을 `model=_make_model()` 로 교체합니다.
 
 ```bash
 sed -i 's/model=model/model=_make_model()/g' app/BcaWorkshop/agents.py
 
-# 확인 — 4곳이 모두 _make_model() 로 바뀌었는지 검사합니다
+# 4곳이 모두 바뀌었는지 확인합니다
 grep -n "model=model\|model=_make_model" app/BcaWorkshop/agents.py
 ```
 
