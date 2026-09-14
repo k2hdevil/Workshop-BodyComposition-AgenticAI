@@ -92,7 +92,7 @@ def create_trend_memory():
     # TODO ②: 요약 전략으로 Memory 를 생성하세요(생성 완료까지 대기하는 메서드 사용)
     # - strategies 에 summaryMemoryStrategy 를 넣습니다
     # - namespaceTemplates 에 {actorId}/{sessionId} 를 써서 사용자·회차별로 격리합니다
-    # - 요약 전략은 Memory 가 모델을 호출하므로 실행 역할 ARN 이 필수입니다
+    # memory_execution_role_arn 은 이미 채워져 있습니다(요약 전략이 모델을 호출하므로 필요)
     memory = client.________(
         name="BodyCompositionTrend",
         strategies=[{
@@ -106,12 +106,11 @@ def create_trend_memory():
     return memory.get("id")
 ```
 
-> `create_memory_and_wait` 는 Memory 가 `ACTIVE` 가 될 때까지 기다립니다. **이 워크샵의
-> `summaryMemoryStrategy` 는 요약을 추출하려고 Memory 가 사용자 계정에서 Bedrock 모델을
-> 대신 호출**하므로, 그 권한을 주는 실행 역할 ARN(`MEMORY_ROLE`)을
-> `memory_execution_role_arn=` 로 **반드시** 넘겨야 합니다. 요약·추출 전략(summary,
-> custom, built-in-with-overrides)에서는 이 인자가 필수이고, 빠지면 생성 또는 요약 추출
-> 단계에서 권한 오류가 납니다. (전략 없이 단기 이벤트만 저장한다면 실행 역할은 불필요합니다.)
+> `create_memory_and_wait` 는 Memory 가 `ACTIVE` 가 될 때까지 기다립니다. `summaryMemoryStrategy`
+> 는 요약을 추출할 때 Memory 가 사용자 계정에서 Bedrock 모델을 호출하므로, 그 권한을 주는
+> 실행 역할 ARN 을 `memory_execution_role_arn=` 로 넘겨야 합니다. 위 코드는 이 값을
+> `os.environ["MEMORY_ROLE"]` 에서 읽습니다 — 실습 시작에서 조회한 `MEMORY_ROLE` 을 실행할
+> 때 환경변수로 전달하면 됩니다(Step 4 참고).
 
 ### Step 2: 회차 저장 — actor_id 에 sub 사용
 
@@ -224,7 +223,8 @@ print('delta:', ms.compute_delta(brief(first), brief(latest)))
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
-| `create_memory_and_wait` 가 AccessDenied | Memory 실행 역할 권한 부족 | `MemoryExecutionRoleArn` 을 `memory_execution_role_arn=` 로 전달(TODO ⑤) |
+| `create_memory_and_wait` 가 AccessDenied | 실행 역할 ARN 미전달 | 실행 시 `MEMORY_ROLE=$MEMORY_ROLE uv run python ...` 로 환경변수를 넘겼는지 확인 |
+| `KeyError: 'MEMORY_ROLE'` | 환경변수 미전달 | 위와 동일. 실습 시작에서 `MEMORY_ROLE` 을 조회했는지도 확인 |
 | `retrieve_memories` 결과가 비어 있음 | 요약 추출이 아직 진행 중 | 30~60초 후 재시도. 단기 이벤트는 즉시, 장기 요약은 지연 |
 | 다른 사용자 데이터가 섞임 | `actor_id` 를 고정값으로 씀 | 사용자마다 다른 `sub` 를 넣었는지 확인 |
 | `namespace` 불일치로 조회 실패 | 템플릿과 조회 문자열 불일치 | 전략의 `namespaceTemplates` 와 조회 `namespace` 를 같은 형식으로 |
@@ -249,7 +249,7 @@ print('delta:', ms.compute_delta(brief(first), brief(latest)))
 ## 부록: 정답 코드
 
 <details>
-<summary>memory_store.py TODO ①~⑤ 정답 (클릭하여 펼치기)</summary>
+<summary>memory_store.py TODO ①~④ 정답 (클릭하여 펼치기)</summary>
 
 **TODO ① — Memory 클라이언트 import**
 
@@ -267,7 +267,7 @@ memory = client.create_memory_and_wait(
 
 `create_memory_and_wait` 는 Memory 가 `ACTIVE` 가 될 때까지 폴링합니다. 바로 이벤트를 저장할
 수 있어 실습에 적합합니다. 이 호출에는 `memory_execution_role_arn=os.environ["MEMORY_ROLE"]`
-이 함께 들어갑니다 — 요약 전략이 모델을 호출하기 때문입니다(TODO ⑤ 참고).
+이 함께 들어갑니다 — 요약 전략이 모델을 호출하기 때문입니다(아래 참고 항목).
 
 **TODO ③ — actor_id 에 sub**
 
@@ -285,23 +285,14 @@ memories = client.retrieve_memories(
 
 `retrieve_memories` 가 네임스페이스에서 추출된 요약을 의미 검색으로 가져옵니다.
 
-**TODO ⑤ — 실행 역할 명시 (이 전략에서는 필수)**
+**참고 — `memory_execution_role_arn` 은 이미 채워진 코드입니다**
 
-요약·추출 전략을 쓰는 Memory 는 요약을 만들 때 사용자 계정에서 Bedrock 모델을 호출합니다.
-그 권한을 주는 실행 역할 ARN 을 반드시 넘겨야 합니다(선택 인자가 아닙니다).
-
-```python
-memory = client.create_memory_and_wait(
-    name="BodyCompositionTrend",
-    strategies=[...],
-    memory_execution_role_arn=os.environ["MEMORY_ROLE"],
-)
-```
-
-`MEMORY_ROLE` 은 실습 시작에서 core 스택 출력값으로 받은 `MemoryExecutionRoleArn` 입니다.
-환경변수로 전달하려면 `MEMORY_ROLE=$MEMORY_ROLE uv run python ...` 형태로 실행하세요.
-빠뜨리면 `create_memory_and_wait` 가 AccessDenied 로 실패하거나(트러블슈팅 표 참고), 생성은
-되어도 요약 추출 단계에서 권한 오류가 납니다.
+이 인자는 빈칸(TODO)이 아니라 뼈대에 처음부터 들어 있습니다. `summaryMemoryStrategy` 가
+요약을 만들 때 Memory 가 사용자 계정에서 Bedrock 모델을 호출하므로, 그 권한을 주는 실행
+역할 ARN 이 필요하기 때문입니다. 코드는 이 값을 `os.environ["MEMORY_ROLE"]` 에서 읽고,
+`MEMORY_ROLE` 은 실습 시작에서 core 스택 출력값(`MemoryExecutionRoleArn`)으로 받은 값입니다.
+따라서 별도로 선언할 것은 없고, 실행할 때 `MEMORY_ROLE=$MEMORY_ROLE uv run python ...`
+형태로 환경변수만 전달하면 됩니다. 전달을 빠뜨리면 `os.environ` 조회가 실패합니다.
 
 ### 요약
 
@@ -311,6 +302,5 @@ memory = client.create_memory_and_wait(
 | ② | `create_memory_and_wait` | ACTIVE 까지 대기하는 생성 |
 | ③ | `user_sub` | 격리 키에 이름이 아닌 Cognito sub |
 | ④ | `retrieve_memories` | 네임스페이스에서 요약 조회 |
-| ⑤ | `memory_execution_role_arn=os.environ["MEMORY_ROLE"]` | 요약 전략은 모델을 호출하므로 실행 역할 필수 |
 
 </details>
