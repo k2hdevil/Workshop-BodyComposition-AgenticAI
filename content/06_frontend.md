@@ -228,7 +228,18 @@ echo "IMAGE=$IMAGE"
 
 ### Step 5: ECS Express Mode 서비스 생성
 
-Express Mode 는 실행 역할 2개를 요구합니다. 계정에 없으면 한 번 만듭니다(AWS 관리형 정책 사용).
+Express Mode 는 실행 역할 2개와 ECS 서비스 연결 역할(Service-Linked Role)을 요구합니다.
+계정에 없으면 아래 명령으로 한 번 만듭니다.
+
+```bash
+# ECS 서비스 연결 역할 — ECS가 서비스 리소스를 대신 생성·관리할 때 사용
+aws iam create-service-linked-role \
+  --aws-service-name ecs.amazonaws.com 2>/dev/null || true
+```
+
+> `InvalidInput: Service role name AWSServiceRoleForECS has been taken` 이 나오면 이미 역할이
+> 존재한다는 뜻이므로 정상입니다. 이 명령의 목적은 역할이 없을 때만 생성하는 것이며, 이후
+> 아래 두 실행 역할을 확인하고 `create-express-gateway-service` 를 실행하세요.
 
 ```bash
 # Task Execution Role — 이미지 pull·로그 기록
@@ -327,6 +338,7 @@ aws cloudformation deploy \
 | 헬스체크 실패로 ACTIVE 안 됨 | 포트·경로 불일치 | `containerPort` 8501, `--health-check-path /_stcore/health` 확인 |
 | 태스크가 `exec format error` 로 안 뜸 | arm64 이미지를 x86 Fargate 에 배포 | `--platform linux/amd64` 로 다시 빌드·push |
 | Docker 빌드 중 `/bin/sh: exec format error` 또는 `failed to solve` exit code 255 | ARM64 빌드 호스트에 AMD64 에뮬레이션 미설치 또는 잘못된 레이어 캐시 | `docker run --privileged --rm tonistiigi/binfmt --install amd64` 후 `docker build --no-cache --platform linux/amd64 ...` 재실행. `pip install` 명령 자체의 오류가 아님 |
+| `create-express-gateway-service` 가 서비스 연결 역할 오류 | `AWSServiceRoleForECS` 미생성 또는 전파 지연 | `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com` 실행. 이미 존재한다는 `taken` 오류면 정상이며, 1분 후 서비스 생성 재시도 |
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
