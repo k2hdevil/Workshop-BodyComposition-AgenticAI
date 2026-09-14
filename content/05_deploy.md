@@ -151,9 +151,10 @@ model = BedrockModel(model_id=MODEL_ID, temperature=0.2)         # ← 이 줄�
 `MODEL_ID` 는 그대로 유지합니다.
 
 ```python
-# 위 한 줄을 아래 블록으로 교체합니다
+# 위 두 줄을 아래 블록으로 교체합니다
+# from strands.models import BedrockModel 은 제거합니다 — 아래 줄이 대체합니다
 import os
-from guardrail import create_guardrail
+from guardrail import create_guardrail, get_existing_guardrail
 from strands.models.bedrock import BedrockModel, CacheConfig
 
 # module-level 에서는 환경변수만 읽습니다 — import 시점에 API 를 호출하면
@@ -167,7 +168,6 @@ def _make_model():
     global _gid, _ver
     if not _gid:
         # 1) 기존 bca-safety Guardrail 조회
-        from guardrail import get_existing_guardrail
         _gid, _ver = get_existing_guardrail()
     if not _gid:
         # 2) 없으면 새로 생성
