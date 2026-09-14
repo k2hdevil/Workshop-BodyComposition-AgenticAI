@@ -113,21 +113,24 @@ cd BcaWorkshop
 ```
 
 `agentcore create` 가 완료되면 `app/BcaWorkshop/main.py` 와 `pyproject.toml` 이 생깁니다.
+`pyproject.toml` 은 `app/BcaWorkshop/` 안에 있으므로, 의존성 추가는 그 안에서 합니다.
 이제 Lab 2~4 에서 만든 코드를 앱 디렉터리로 복사하고 의존성을 합칩니다.
 
 ```bash
 # Lab 2~4 코드를 앱 디렉터리로 복사합니다
-# (lab5/ 와 BcaWorkshop/ 이 같은 디렉터리에 있다고 가정)
+# (각 lab 디렉터리와 BcaWorkshop/ 이 같은 부모 디렉터리에 있다고 가정)
 cp ../lab2/agents.py app/BcaWorkshop/
 cp ../lab3/memory_store.py app/BcaWorkshop/
 cp ../lab4/guardrail.py app/BcaWorkshop/
 
-# Lab 2~4 에서 쓴 의존성을 이 프로젝트에도 추가합니다
+# pyproject.toml 이 있는 디렉터리로 이동해 의존성을 추가합니다
+cd app/BcaWorkshop
 uv add strands-agents bedrock-agentcore boto3 aws-opentelemetry-distro
+cd ../..   # BcaWorkshop/ 루트로 돌아옵니다 (agentcore dev/deploy 는 여기서 실행)
 ```
 
 **정상 동작 확인**: `app/BcaWorkshop/` 안에 `main.py`, `agents.py`, `memory_store.py`,
-`guardrail.py` 가 있고, `uv.lock` 이 갱신됩니다.
+`guardrail.py` 가 있고, `app/BcaWorkshop/uv.lock` 이 갱신됩니다.
 
 ### Step 2: entrypoint 작성
 
