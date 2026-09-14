@@ -171,12 +171,22 @@ if __name__ == "__main__":
 
 ### Step 3: 로컬 테스트
 
-배포 전에 로컬에서 서비스 컨트랙트를 확인합니다.
+배포 전에 로컬에서 서비스 컨트랙트를 확인합니다. `agentcore dev` 를 실행할 때
+`2>&1 | tee agentcore-dev.log` 를 붙이면 서버 로그를 화면과 파일에 동시에 남길 수 있습니다.
+
+> **포트 충돌 시**: 워크샵 환경에서 8080·8081 은 이미 사용 중일 수 있습니다. `--port` 로
+> 다른 포트를 지정하고 curl 도 같은 포트를 쓰세요.
 
 ```bash
-agentcore dev --no-browser
-# 다른 터미널에서:
-curl -X POST http://localhost:8080/invocations \
+# BcaWorkshop/ 루트에서 실행 — 로그를 화면과 파일에 동시 출력
+agentcore dev --port 8082 --no-browser 2>&1 | tee agentcore-dev.log
+```
+
+다른 터미널에서 호출합니다. Supervisor 가 에이전트 3개를 순차 호출하므로
+**응답까지 수십 초가 걸립니다** — 기다리거나 `-m 120` 으로 타임아웃을 늘리세요.
+
+```bash
+curl -m 120 -X POST http://localhost:8082/invocations \
   -H "Content-Type: application/json" \
   -d '{"measurement": {"obesity_analysis": {"pbf_percent": {"value": 32.5}}}}'
 # 예상: {"result": "...소견/운동/식단..."}
@@ -233,7 +243,9 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 | 증상 | 원인 | 해결 |
 |------|------|------|
 | 배포가 Container 방식으로 감 | uv 미사용 | uv 프로젝트인지 확인. `uv.lock` 존재 시 CodeZip 권장 |
-| `agentcore dev` 가 포트 오류 | 8080 사용 중 | 8080 을 쓰는 프로세스 종료 후 재실행 |
+| `agentcore dev` 가 포트 오류 | 8080 사용 중 | `--port 8082` 등 다른 포트 지정 후 curl 도 같은 포트로 |
+| `Unsupported method POST` 응답 | 다른 프로세스가 해당 포트 점유 | `lsof -i :8082` 로 사용 중인 포트 확인 후 빈 포트 사용 |
+| curl 응답이 너무 오래 걸림 | Supervisor 가 에이전트 3개 순차 호출 | 정상. `-m 120` 으로 타임아웃 늘리고 기다리세요 |
 | 배포가 AccessDenied | 실행 역할 권한 부족 | `AgentRuntimeRoleArn` 을 지정했는지 확인. 임의 역할 금지 |
 | `invoke` 가 ModuleNotFound (agents) | Lab 2 코드 미복사 | Step 1 의 `cp ../lab2/agents.py app/BcaWorkshop/` 를 실행했는지 확인 |
 | 트레이스가 안 보임 | Transaction Search 미활성 | Step 4 명령 실행 후 재배포. 수집까지 수 분 지연 |
