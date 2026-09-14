@@ -136,31 +136,6 @@ cd ../..   # BcaWorkshop/ 루트로 돌아옵니다 (agentcore dev/deploy 는 �
 
 코드를 복사했으니 이제 각 Lab 의 기능을 실제로 연결합니다.
 
-**Runtime 역할에 Guardrail 조회 권한 추가**
-
-`_make_model()` 이 `get_existing_guardrail()` 로 기존 Guardrail 을 조회하므로,
-Runtime 실행 역할에 `bedrock:ListGuardrails` 와 `bedrock:GetGuardrail` 권한이 있어야 합니다.
-
-```bash
-aws iam put-role-policy \
-  --role-name bca-workshop-agent-runtime-role \
-  --policy-name guardrail-lookup \
-  --policy-document '{
-    "Version": "2012-10-17",
-    "Statement": [{
-      "Effect": "Allow",
-      "Action": [
-        "bedrock:ListGuardrails",
-        "bedrock:GetGuardrail"
-      ],
-      "Resource": "*"
-    }]
-  }' \
-  --region us-west-2
-```
-
-**정상 동작 확인**: 오류 없이 완료됩니다.
-
 **Guardrail 연결 — `app/BcaWorkshop/agents.py` 상단 수정**
 
 `agents.py` 에는 지금 이 두 줄이 있습니다.

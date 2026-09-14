@@ -224,9 +224,12 @@ Resources:
                 Resource:
                   - !Sub "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*"
                   - !Sub "arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*"
-              # Lab 4 에서 참가자가 만드는 Guardrail 적용
+              # Lab 4 에서 참가자가 만드는 Guardrail 적용·조회
               - Effect: Allow
-                Action: bedrock:ApplyGuardrail
+                Action:
+                  - bedrock:ApplyGuardrail
+                  - bedrock:ListGuardrails
+                  - bedrock:GetGuardrail
                 Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*"
 
         - PolicyName: agentcore-memory
