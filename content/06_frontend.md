@@ -213,7 +213,13 @@ IMAGE="$ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$REPO:latest"
 # Express Mode 는 CPU 아키텍처를 지정하는 옵션이 없어 Fargate 기본값(x86_64)으로 태스크를
 # 띄웁니다. Apple Silicon(arm64) 등에서 빌드하면 반드시 --platform linux/amd64 를 붙이세요.
 # (아키텍처가 어긋나면 태스크가 exec format error 로 기동하지 못합니다 — 실측 확인)
-docker build --platform linux/amd64 -t "$IMAGE" .
+# 빌드 호스트가 ARM64(aarch64)이면 AMD64 에뮬레이션을 설치합니다.
+# 에뮬레이션이 이미 있으면 Docker가 재사용합니다.
+if [ "$(uname -m)" = "aarch64" ]; then
+  docker run --privileged --rm tonistiigi/binfmt --install amd64
+fi
+
+docker build --no-cache --platform linux/amd64 -t "$IMAGE" .
 docker push "$IMAGE"
 echo "IMAGE=$IMAGE"
 ```
@@ -320,6 +326,7 @@ aws cloudformation deploy \
 | Express 생성이 assume-role 오류 | IAM 역할 전파 지연 | 약 1분 후 재시도 |
 | 헬스체크 실패로 ACTIVE 안 됨 | 포트·경로 불일치 | `containerPort` 8501, `--health-check-path /_stcore/health` 확인 |
 | 태스크가 `exec format error` 로 안 뜸 | arm64 이미지를 x86 Fargate 에 배포 | `--platform linux/amd64` 로 다시 빌드·push |
+| Docker 빌드 중 `/bin/sh: exec format error` 또는 `failed to solve` exit code 255 | ARM64 빌드 호스트에 AMD64 에뮬레이션 미설치 또는 잘못된 레이어 캐시 | `docker run --privileged --rm tonistiigi/binfmt --install amd64` 후 `docker build --no-cache --platform linux/amd64 ...` 재실행. `pip install` 명령 자체의 오류가 아님 |
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
