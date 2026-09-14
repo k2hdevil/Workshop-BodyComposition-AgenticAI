@@ -76,11 +76,14 @@ CLIENT_ID=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
   --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' --output text)
 OIDC_URL=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
   --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`OIDCDiscoveryUrl`].OutputValue' --output text)
-# client secret 조회 명령은 GetClientSecretCommand 출력값에 있습니다
 CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
   --user-pool-id "$POOL_ID" --client-id "$CLIENT_ID" --region us-west-2 \
   --query 'UserPoolClient.ClientSecret' --output text)
-echo "OIDC: $OIDC_URL"
+
+# secrets.toml 에 채울 값을 확인합니다
+echo "client_id     : $CLIENT_ID"
+echo "client_secret : ${CLIENT_SECRET:0:5}..."
+echo "server_metadata_url: $OIDC_URL"
 ```
 
 ### Step 1: secrets.toml — 토큰 노출 설정
