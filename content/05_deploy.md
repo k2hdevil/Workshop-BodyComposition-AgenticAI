@@ -259,10 +259,25 @@ aws bedrock-agentcore-control list-memories \
 export MEMORY_ID=<위 명령 출력값>
 ```
 
-> **캐시는 Action Item 으로 남깁니다.** Strands `BedrockModel` 은 현재 `cachePoint` 를 지원하지
-> 않으므로, 전문 에이전트에 캐시를 붙이려면 Strands 의 raw Bedrock 클라이언트를 커스터마이징
-> 해야 합니다. 이 워크샵의 시간 범위를 벗어나므로 `99_cleanup.md` 의 Action Items 에서
-> 이어갑니다.
+> **캐시 통합**: Strands `BedrockModel` 은 `CacheConfig` 를 통해 프롬프트 캐시를 지원합니다.
+> `agents.py` 에서 `model` 생성 시 `cache_config=CacheConfig(strategy="auto")` 를 추가하면
+> 시스템 프롬프트와 도구 정의를 자동으로 캐시합니다. `CacheConfig` 를 import 한 뒤 아래처럼
+> 추가하세요.
+>
+> ```python
+> from strands.models.bedrock import BedrockModel, CacheConfig
+>
+> model = BedrockModel(
+>     model_id=MODEL_ID,
+>     guardrail_id=_gid,
+>     guardrail_version=_ver,
+>     temperature=0.2,
+>     cache_config=CacheConfig(strategy="auto"),   # 시스템 프롬프트·도구 정의 자동 캐시
+> )
+> ```
+>
+> Claude Sonnet 4.5 기준 캐시 최소 토큰은 1,024 입니다. `strategy="auto"` 는 Bedrock 이
+> 캐시 가능한 prefix 를 자동으로 판단합니다.
 
 ### Step 4: 로컬 테스트
 
