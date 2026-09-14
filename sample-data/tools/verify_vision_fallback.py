@@ -21,7 +21,7 @@ from pathlib import Path
 
 import boto3
 
-REGION = "us-east-1"
+REGION = "us-west-2"
 MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 ROOT = Path(__file__).resolve().parent.parent

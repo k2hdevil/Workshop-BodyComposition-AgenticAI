@@ -64,7 +64,7 @@ Memory 실행 역할 ARN 을 core 스택에서 가져옵니다(Memory 가 요약
 
 ```bash
 MEMORY_ROLE=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`MemoryExecutionRoleArn`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`MemoryExecutionRoleArn`].OutputValue' \
   --output text)
 echo "$MEMORY_ROLE"
 # 예상 출력: arn:aws:iam::<계정>:role/bca-workshop-memory-execution-role
@@ -83,7 +83,7 @@ import time
 # TODO ①: AgentCore Memory 클라이언트를 가져옵니다
 from bedrock_agentcore.memory import ________
 
-REGION = "us-east-1"
+REGION = "us-west-2"
 client = MemoryClient(region_name=REGION)
 
 

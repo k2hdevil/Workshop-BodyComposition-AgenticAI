@@ -89,7 +89,7 @@ mkdir -p lab1 && cd lab1
 
 ```bash
 GATEWAY_URL=$(aws cloudformation describe-stacks --stack-name bca-workshop-gateway \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`GatewayUrl`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`GatewayUrl`].OutputValue' \
   --output text)
 
 uv run python ../sample-data/tools/verify_gateway_mcp.py "$GATEWAY_URL" ../access-token.txt
@@ -123,7 +123,7 @@ logging.getLogger("pdfminer").setLevel(logging.ERROR)
 import boto3
 import pdfplumber
 
-REGION = "us-east-1"
+REGION = "us-west-2"
 MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 
 s3 = boto3.client("s3", region_name=REGION)
@@ -330,7 +330,7 @@ Lambda 로 올리기 전에 로컬에서 세 케이스를 직접 돌려 봅니�
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
   --output text)
 
 DATA_BUCKET=$BUCKET uv run python -c "
@@ -364,7 +364,7 @@ cp index.py build/
 aws lambda update-function-code \
   --function-name bca-workshop-extractor \
   --zip-file fileb://extractor.zip \
-  --region us-east-1
+  --region us-west-2
 ```
 
 교체 후 Step 1 의 `verify_gateway_mcp.py` 를 다시 돌리면 `NOT_IMPLEMENTED` 대신 실제

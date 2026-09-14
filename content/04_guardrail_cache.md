@@ -81,7 +81,7 @@ uv add boto3 strands-agents
 # lab4/guardrail.py
 import boto3
 
-REGION = "us-east-1"
+REGION = "us-west-2"
 bedrock = boto3.client("bedrock", region_name=REGION)
 
 
@@ -192,7 +192,7 @@ def build_guarded_model(guardrail_id, version):
 # lab4/cache_demo.py
 import boto3
 
-REGION = "us-east-1"
+REGION = "us-west-2"
 MODEL_ID = "global.anthropic.claude-sonnet-4-5-20250929-v1:0"
 runtime = boto3.client("bedrock-runtime", region_name=REGION)
 

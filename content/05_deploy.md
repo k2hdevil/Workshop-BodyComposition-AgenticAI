@@ -47,7 +47,7 @@ Runtime 실행 역할 ARN 을 core 스택에서 가져옵니다.
 
 ```bash
 RUNTIME_ROLE=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`AgentRuntimeRoleArn`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`AgentRuntimeRoleArn`].OutputValue' \
   --output text)
 echo "$RUNTIME_ROLE"
 # 예상 출력: arn:aws:iam::<계정>:role/bca-workshop-agent-runtime-role
@@ -120,7 +120,7 @@ CloudWatch Transaction Search 를 켠 뒤 배포하면 트레이스가 수집됩
 ```bash
 # CloudWatch Transaction Search 활성화 (계정에서 한 번)
 aws xray update-trace-segment-destination \
-  --destination CloudWatchLogs --region us-east-1
+  --destination CloudWatchLogs --region us-west-2
 ```
 
 ### Step 4: 배포와 호출

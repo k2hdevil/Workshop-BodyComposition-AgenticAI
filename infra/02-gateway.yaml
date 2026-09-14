@@ -18,7 +18,7 @@ Description: >
       --stack-name bca-workshop-gateway \
       --parameter-overrides CoreStackName=bca-workshop-core \
       --capabilities CAPABILITY_NAMED_IAM \
-      --region us-east-1
+      --region us-west-2
 
 Metadata:
   # cfn-lint 1.55 시점의 번들 스키마에는 AgentCore 리소스가 아직 없습니다.

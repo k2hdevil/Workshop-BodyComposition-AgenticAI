@@ -37,20 +37,20 @@ agentcore destroy   # 또는 콘솔에서 해당 Runtime 삭제
 # Memory — Lab 3 에서 만든 memory_id 로 삭제
 uv run python -c "
 from bedrock_agentcore.memory import MemoryClient
-c = MemoryClient(region_name='us-east-1')
+c = MemoryClient(region_name='us-west-2')
 c.delete_memory(memory_id='<LAB3_MEMORY_ID>')
 print('memory deleted')
 "
 
 # Guardrail — Lab 4 에서 만든 guardrailId 로 삭제
-aws bedrock delete-guardrail --guardrail-identifier <LAB4_GUARDRAIL_ID> --region us-east-1
+aws bedrock delete-guardrail --guardrail-identifier <LAB4_GUARDRAIL_ID> --region us-west-2
 ```
 
 **정상 동작 확인**: `agentcore` 목록·`list-guardrails`·Memory 조회에서 해당 리소스가
 사라졌는지 확인합니다.
 
 ```bash
-aws bedrock list-guardrails --region us-east-1 \
+aws bedrock list-guardrails --region us-west-2 \
   --query 'guardrails[].name' --output text
 # bca-safety 가 목록에 없어야 합니다
 ```
@@ -61,11 +61,11 @@ S3 버킷에 객체가 남아 있으면 스택 삭제가 실패합니다. 먼저
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
   --output text)
 
-aws s3 rm "s3://$BUCKET" --recursive --region us-east-1
-aws s3 ls "s3://$BUCKET" --region us-east-1
+aws s3 rm "s3://$BUCKET" --recursive --region us-west-2
+aws s3 ls "s3://$BUCKET" --region us-west-2
 # 아무것도 출력되지 않아야 합니다
 ```
 
@@ -77,18 +77,18 @@ gateway(선택 스택)를 먼저, core 를 나중에 지웁니다.
 
 ```bash
 # gateway 스택을 배포했다면 먼저 삭제
-aws cloudformation delete-stack --stack-name bca-workshop-gateway --region us-east-1
-aws cloudformation wait stack-delete-complete --stack-name bca-workshop-gateway --region us-east-1
+aws cloudformation delete-stack --stack-name bca-workshop-gateway --region us-west-2
+aws cloudformation wait stack-delete-complete --stack-name bca-workshop-gateway --region us-west-2
 
 # core 스택 삭제
-aws cloudformation delete-stack --stack-name bca-workshop-core --region us-east-1
-aws cloudformation wait stack-delete-complete --stack-name bca-workshop-core --region us-east-1
+aws cloudformation delete-stack --stack-name bca-workshop-core --region us-west-2
+aws cloudformation wait stack-delete-complete --stack-name bca-workshop-core --region us-west-2
 ```
 
 **정상 동작 확인**: 두 `wait` 명령이 오류 없이 끝나면 삭제 완료입니다.
 
 ```bash
-aws cloudformation describe-stacks --stack-name bca-workshop-core --region us-east-1 2>&1 | tail -1
+aws cloudformation describe-stacks --stack-name bca-workshop-core --region us-west-2 2>&1 | tail -1
 # "does not exist" 류 메시지가 나오면 정상 삭제된 것입니다
 ```
 
@@ -98,15 +98,15 @@ Express 서비스를 지우면 ALB·타깃그룹·보안그룹·오토스케일 
 
 ```bash
 # 서비스 ARN 조회 (delete/describe 는 --service-arn 을 받으므로 이름으로 먼저 찾습니다)
-SERVICE_ARN=$(aws ecs list-services --region us-east-1 \
+SERVICE_ARN=$(aws ecs list-services --region us-west-2 \
   --query "serviceArns[?contains(@, 'bca-frontend')]" --output text)
 
 # Express 서비스 삭제 (딸린 ALB·타깃그룹·보안그룹·오토스케일 함께 제거)
-aws ecs delete-express-gateway-service --service-arn "$SERVICE_ARN" --region us-east-1
+aws ecs delete-express-gateway-service --service-arn "$SERVICE_ARN" --region us-west-2
 
 # ECR 리포지토리 삭제 (이미지 포함 강제 삭제)
 aws ecr delete-repository --repository-name bca-workshop-frontend \
-  --force --region us-east-1
+  --force --region us-west-2
 ```
 
 ---

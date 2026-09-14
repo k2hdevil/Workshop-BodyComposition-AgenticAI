@@ -24,7 +24,7 @@ Express Mode** 를 씁니다. 컨테이너 이미지 하나만 주면 Fargate �
 |------|------------------|
 | 입력 | **컨테이너 이미지** + 실행 역할 2개 |
 | 자동 구성 | Fargate 서비스, ALB(HTTPS), 오토스케일, URL |
-| URL 형식 | `https://<서비스명>.ecs.us-east-1.on.aws/` |
+| URL 형식 | `https://<서비스명>.ecs.us-west-2.on.aws/` |
 | 요금 | Express 자체 무과금 (Fargate·ALB·CloudWatch·데이터전송만) |
 
 > **컨테이너는 프론트엔드에만 씁니다.** 에이전트 Runtime 은 Lab 5 에서 정한 대로 **CodeZip**
@@ -71,14 +71,14 @@ core 스택에서 인증 값들을 가져옵니다.
 
 ```bash
 POOL_ID=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' --output text)
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' --output text)
 CLIENT_ID=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' --output text)
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' --output text)
 OIDC_URL=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`OIDCDiscoveryUrl`].OutputValue' --output text)
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`OIDCDiscoveryUrl`].OutputValue' --output text)
 # client secret 조회 명령은 GetClientSecretCommand 출력값에 있습니다
 CLIENT_SECRET=$(aws cognito-idp describe-user-pool-client \
-  --user-pool-id "$POOL_ID" --client-id "$CLIENT_ID" --region us-east-1 \
+  --user-pool-id "$POOL_ID" --client-id "$CLIENT_ID" --region us-west-2 \
   --query 'UserPoolClient.ClientSecret' --output text)
 echo "OIDC: $OIDC_URL"
 ```
@@ -136,7 +136,7 @@ if st.sidebar.button("로그아웃"):
 ```python
 # lab6/app.py (이어서)
 
-REGION = "us-east-1"
+REGION = "us-west-2"
 
 uploaded = st.file_uploader("체성분 결과지 PDF 업로드", type="pdf")
 if uploaded is not None:
@@ -195,12 +195,12 @@ ECR 리포지토리를 만들고 이미지를 올립니다.
 ```bash
 ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 REPO="bca-workshop-frontend"
-aws ecr create-repository --repository-name "$REPO" --region us-east-1
+aws ecr create-repository --repository-name "$REPO" --region us-west-2
 
-aws ecr get-login-password --region us-east-1 \
-  | docker login --username AWS --password-stdin "$ACCOUNT.dkr.ecr.us-east-1.amazonaws.com"
+aws ecr get-login-password --region us-west-2 \
+  | docker login --username AWS --password-stdin "$ACCOUNT.dkr.ecr.us-west-2.amazonaws.com"
 
-IMAGE="$ACCOUNT.dkr.ecr.us-east-1.amazonaws.com/$REPO:latest"
+IMAGE="$ACCOUNT.dkr.ecr.us-west-2.amazonaws.com/$REPO:latest"
 # Express Mode 는 CPU 아키텍처를 지정하는 옵션이 없어 Fargate 기본값(x86_64)으로 태스크를
 # 띄웁니다. Apple Silicon(arm64) 등에서 빌드하면 반드시 --platform linux/amd64 를 붙이세요.
 # (아키텍처가 어긋나면 태스크가 exec format error 로 기동하지 못합니다 — 실측 확인)
@@ -239,10 +239,10 @@ aws ecs create-express-gateway-service \
   --infrastructure-role-arn "arn:aws:iam::$ACCOUNT:role/ecsInfrastructureRoleForExpressServices" \
   --health-check-path "/_stcore/health" \
   --monitor-resources \
-  --region us-east-1
+  --region us-west-2
 # 상태가 ACTIVE 가 되면 서비스 URL 이 반환됩니다. URL 접두사는 서비스명이 아니라
 # Express 가 붙이는 `bc-<해시>` 형태입니다 (실측 예):
-#   https://bc-00fcb754df8d4f21ade08f2e3542727e.ecs.us-east-1.on.aws/
+#   https://bc-00fcb754df8d4f21ade08f2e3542727e.ecs.us-west-2.on.aws/
 ```
 
 > IAM 역할은 생성 직후 전파에 시간이 걸립니다. 첫 호출이 assume-role 오류로 실패하면 약 1분
@@ -259,29 +259,29 @@ Express 가 발급한 URL 로 Cognito 콜백을 갱신합니다. URL 은 배포 
 
 ```bash
 # 서비스 ARN 을 이름으로 찾기 (describe 는 --service-arn 만 받으므로 ARN 을 먼저 확보)
-SERVICE_ARN=$(aws ecs list-services --region us-east-1 \
+SERVICE_ARN=$(aws ecs list-services --region us-west-2 \
   --query "serviceArns[?contains(@, 'bca-frontend')]" --output text)
 
 # 서비스 URL 조회 (또는 Step 5 의 create 출력에서 복사)
 # URL 은 service.url 이 아니라 활성 구성의 ingressPaths[].endpoint 에 있습니다
 APP_URL=$(aws ecs describe-express-gateway-service \
-  --service-arn "$SERVICE_ARN" --region us-east-1 \
+  --service-arn "$SERVICE_ARN" --region us-west-2 \
   --query 'service.activeConfigurations[0].ingressPaths[0].endpoint' --output text)
-echo "$APP_URL"   # 예: https://bc-00fcb754df8d4f21ade08f2e3542727e.ecs.us-east-1.on.aws
+echo "$APP_URL"   # 예: https://bc-00fcb754df8d4f21ade08f2e3542727e.ecs.us-west-2.on.aws
 
 # TODO ⑥: 콜백 URL 파라미터를 실제 서비스 URL 로 갱신합니다(경로는 /oauth2callback)
 aws cloudformation deploy \
   --template-file infra/01-core.yaml \
   --stack-name bca-workshop-core \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1 \
+  --region us-west-2 \
   --parameter-overrides ________="$APP_URL/oauth2callback"
 ```
 
 배포된 앱에서는 `secrets.toml` 의 `redirect_uri` 도 `$APP_URL/oauth2callback` 로 맞춰
 이미지를 다시 빌드·push 하고 서비스를 업데이트합니다.
 
-**정상 동작 확인**: 서비스 URL(`*.ecs.us-east-1.on.aws`)로 접속해 Cognito 로그인이 되고,
+**정상 동작 확인**: 서비스 URL(`*.ecs.us-west-2.on.aws`)로 접속해 Cognito 로그인이 되고,
 로그인 후 이름이 화면에 표시되며 업로드 시 본인 확인 메시지가 뜹니다.
 
 ---
@@ -294,7 +294,7 @@ aws cloudformation deploy \
 - [ ] 이미지가 ECR 에 push 되고 Express 서비스가 `ACTIVE`
 - [ ] 로그인 후 사용자 이름이 화면에만 표시(에이전트 페이로드에는 없음)
 - [ ] 업로드 시 본인 확인이 PASS/WARN/BLOCK 로 분기
-- [ ] 서비스 URL(`*.ecs.us-east-1.on.aws`)로 HTTPS 접속·로그인 성공
+- [ ] 서비스 URL(`*.ecs.us-west-2.on.aws`)로 HTTPS 접속·로그인 성공
 - [ ] `HostedCallbackUrl` 파라미터가 실제 서비스 URL 로 갱신됨
 
 ---
@@ -383,7 +383,7 @@ Streamlit 기본 포트는 8501 입니다. `--server.port=8501`, Express 의 `co
 ```
 
 배포 후 얻은 ECS Express 서비스 URL 로 `HostedCallbackUrl` 을 갱신합니다. 경로는
-`/oauth2callback`, URL 형식은 `https://<서비스명>.ecs.us-east-1.on.aws`.
+`/oauth2callback`, URL 형식은 `https://<서비스명>.ecs.us-west-2.on.aws`.
 
 ### 요약
 

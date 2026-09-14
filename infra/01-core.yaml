@@ -11,7 +11,7 @@ Description: >
       --template-file infra/01-core.yaml \
       --stack-name bca-workshop-core \
       --capabilities CAPABILITY_NAMED_IAM \
-      --region us-east-1
+      --region us-west-2
 
   삭제 전 버킷 비우기:
     aws s3 rm s3://<DataBucketName> --recursive
@@ -54,10 +54,10 @@ Parameters:
 
   HostedCallbackUrl:
     Type: String
-    Default: https://example.ecs.us-east-1.on.aws/oauth2callback
+    Default: https://example.ecs.us-west-2.on.aws/oauth2callback
     Description: >
       ECS Express Mode 배포 후의 콜백 URL. 배포 전에는 실제 도메인을 모르므로
-      Lab 6에서 이 값을 실제 URL(형식: https://<서비스명>.ecs.us-east-1.on.aws)로
+      Lab 6에서 이 값을 실제 URL(형식: https://<서비스명>.ecs.us-west-2.on.aws)로
       바꿔 스택을 업데이트합니다.
 
 # ──────────────────────────────────────────────

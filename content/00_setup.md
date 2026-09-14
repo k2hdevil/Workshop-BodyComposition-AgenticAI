@@ -110,7 +110,7 @@ Gateway 를 호출하며 확인합니다.
 ## 환경 확인
 
 여기서부터는 코드를 쓰지 않고, 사전 프로비저닝된 리소스를 배포·확인만 합니다.
-전 실습이 **`us-east-1`(N. Virginia) 리전 하나**를 사용합니다.
+전 실습이 **`us-west-2`(N. Virginia) 리전 하나**를 사용합니다.
 
 ### Step 1: 자격 증명과 리전 확인
 
@@ -124,16 +124,16 @@ aws sts get-caller-identity
 # }
 
 aws configure get region
-# 예상 출력: us-east-1
+# 예상 출력: us-west-2
 ```
 
-리전이 `us-east-1` 이 아니면 아래로 고정하세요.
+리전이 `us-west-2` 이 아니면 아래로 고정하세요.
 
 ```bash
-export AWS_DEFAULT_REGION=us-east-1
+export AWS_DEFAULT_REGION=us-west-2
 ```
 
-**정상 동작 확인**: `get-caller-identity` 가 계정 번호를 반환하고 리전이 `us-east-1`.
+**정상 동작 확인**: `get-caller-identity` 가 계정 번호를 반환하고 리전이 `us-west-2`.
 
 ### Step 2: core 스택 배포 (필수)
 
@@ -144,7 +144,7 @@ aws cloudformation deploy \
   --template-file infra/01-core.yaml \
   --stack-name bca-workshop-core \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
+  --region us-west-2
 # 예상 출력:
 # Successfully created/updated stack - bca-workshop-core
 ```
@@ -154,7 +154,7 @@ aws cloudformation deploy \
 ```bash
 aws cloudformation describe-stacks \
   --stack-name bca-workshop-core \
-  --region us-east-1 \
+  --region us-west-2 \
   --query 'Stacks[0].Outputs[].{Key:OutputKey,Value:OutputValue}' \
   --output table
 ```
@@ -171,11 +171,11 @@ CloudFormation 은 S3 에 파일을 넣지 못하므로, 결과지 4건을 직�
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
   --output text)
 
-aws s3 cp sample-data/pdf/ "s3://$BUCKET/measurements/" --recursive --region us-east-1
-aws s3 ls "s3://$BUCKET/measurements/" --region us-east-1
+aws s3 cp sample-data/pdf/ "s3://$BUCKET/measurements/" --recursive --region us-west-2
+aws s3 ls "s3://$BUCKET/measurements/" --region us-west-2
 # 예상 출력: 4건이 보입니다
 #   user-a-session-01.pdf
 #   user-a-session-02.pdf
@@ -195,14 +195,14 @@ aws cloudformation deploy \
   --stack-name bca-workshop-gateway \
   --parameter-overrides CoreStackName=bca-workshop-core \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
+  --region us-west-2
 ```
 
 `GatewayStatus` 출력이 `READY` 인지 확인합니다.
 
 ```bash
 aws cloudformation describe-stacks --stack-name bca-workshop-gateway \
-  --region us-east-1 \
+  --region us-west-2 \
   --query 'Stacks[0].Outputs[?OutputKey==`GatewayStatus`].OutputValue' --output text
 # 예상 출력: READY
 ```
@@ -220,10 +220,10 @@ Lab 1~5 는 프론트엔드가 없는 상태에서 Gateway 와 에이전트를 �
 
 ```bash
 POOL_ID=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
   --output text)
 CLIENT_ID=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
   --output text)
 
 # 테스트 사용자 생성 (name 속성은 본인 확인용이며 김도현으로 둡니다)
@@ -232,7 +232,7 @@ aws cognito-idp admin-create-user \
   --username test@example.com \
   --user-attributes Name=email,Value=test@example.com Name=name,Value=김도현 \
   --message-action SUPPRESS \
-  --region us-east-1
+  --region us-west-2
 
 # 영구 비밀번호 설정 (임시 비밀번호 챌린지를 건너뜁니다)
 aws cognito-idp admin-set-user-password \
@@ -240,7 +240,7 @@ aws cognito-idp admin-set-user-password \
   --username test@example.com \
   --password 'Workshop#2026' \
   --permanent \
-  --region us-east-1
+  --region us-west-2
 ```
 
 이제 액세스 토큰을 받습니다. **Gateway 는 액세스 토큰을 요구합니다**(ID 토큰은 403).
@@ -251,7 +251,7 @@ aws cognito-idp admin-initiate-auth \
   --client-id "$CLIENT_ID" \
   --auth-flow ADMIN_USER_PASSWORD_AUTH \
   --auth-parameters USERNAME=test@example.com,PASSWORD='Workshop#2026' \
-  --region us-east-1 \
+  --region us-west-2 \
   --query 'AuthenticationResult.AccessToken' --output text > access-token.txt
 
 head -c 20 access-token.txt; echo " ...(토큰 저장됨)"
@@ -269,7 +269,7 @@ Lab 1 에서 이 파일을 그대로 씁니다.
 
 ## 검증
 
-- [ ] `aws sts get-caller-identity` 가 계정 번호를 반환하고 리전이 `us-east-1`
+- [ ] `aws sts get-caller-identity` 가 계정 번호를 반환하고 리전이 `us-west-2`
 - [ ] `bca-workshop-core` 스택이 `CREATE_COMPLETE`
 - [ ] core 출력값 표에 `DataBucketName` · `UserPoolId` · `AgentRuntimeRoleArn` 존재
 - [ ] `s3 ls .../measurements/` 에 PDF 4건
@@ -287,7 +287,7 @@ Lab 1 에서 이 파일을 그대로 씁니다.
 | gateway 배포가 IAM Role 오류로 실패 | 역할 `Description` 에 비 ASCII 문자 | 템플릿의 `Description` 은 이미 영문. 수정했다면 ASCII 로 되돌리기 |
 | `GatewayStatus` 가 계속 `CREATING` | Gateway 생성이 진행 중 | 30초~1분 후 다시 조회. 5분 넘으면 스택 이벤트 확인 |
 | `admin-initiate-auth` 가 `NotAuthorizedException` | 비밀번호 불일치 또는 흐름 미허용 | `admin-set-user-password` 재실행, App Client 에 `ADMIN_USER_PASSWORD_AUTH` 확인 |
-| `s3 cp` 가 `AccessDenied` | 리전 불일치 또는 버킷명 오타 | `$BUCKET` 값 확인, `--region us-east-1` 명시 |
+| `s3 cp` 가 `AccessDenied` | 리전 불일치 또는 버킷명 오타 | `$BUCKET` 값 확인, `--region us-west-2` 명시 |
 | 한글 `name` 속성이 깨져 저장 | 터미널 인코딩 | UTF-8 터미널 사용, 값 앞뒤 공백 제거 |
 
 ---

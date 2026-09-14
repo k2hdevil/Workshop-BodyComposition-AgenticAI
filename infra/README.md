@@ -27,7 +27,7 @@ aws cloudformation deploy \
   --template-file infra/01-core.yaml \
   --stack-name bca-workshop-core \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
+  --region us-west-2
 ```
 
 출력값 확인:
@@ -35,7 +35,7 @@ aws cloudformation deploy \
 ```bash
 aws cloudformation describe-stacks \
   --stack-name bca-workshop-core \
-  --region us-east-1 \
+  --region us-west-2 \
   --query 'Stacks[0].Outputs[].{Key:OutputKey,Value:OutputValue}' \
   --output table
 ```
@@ -59,11 +59,11 @@ CloudFormation 은 S3 에 파일을 넣지 못합니다 (PDF 4건이 약 2MB 라
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
   --output text)
 
-aws s3 cp sample-data/pdf/ "s3://$BUCKET/measurements/" --recursive --region us-east-1
-aws s3 ls "s3://$BUCKET/measurements/" --region us-east-1
+aws s3 cp sample-data/pdf/ "s3://$BUCKET/measurements/" --recursive --region us-west-2
+aws s3 ls "s3://$BUCKET/measurements/" --region us-west-2
 # 4건이 보여야 합니다
 ```
 
@@ -77,7 +77,7 @@ aws cloudformation deploy \
   --stack-name bca-workshop-gateway \
   --parameter-overrides CoreStackName=bca-workshop-core \
   --capabilities CAPABILITY_NAMED_IAM \
-  --region us-east-1
+  --region us-west-2
 ```
 
 `GatewayStatus` 출력이 `READY` 여야 호출됩니다. `CREATING` 이면 잠시 후 다시 확인하세요.
@@ -103,7 +103,7 @@ cp index.py build/
 aws lambda update-function-code \
   --function-name bca-workshop-extractor \
   --zip-file fileb://extractor.zip \
-  --region us-east-1
+  --region us-west-2
 ```
 
 두 명령 모두 스택 출력값(`BuildZipCommand`, `UpdateFunctionCodeCommand`)에 들어 있습니다.
@@ -162,8 +162,8 @@ MCP 서버를 직접 띄우는 대신 Gateway 의 Lambda 타겟을 씁니다. **
 | 항목 | 상태 |
 |------|------|
 | `cfn-lint` | 두 템플릿 오류·경고 0 |
-| `01-core` 실제 배포 | **성공** (us-east-1) |
-| `02-gateway` 실제 배포 | **성공** (us-east-1) |
+| `01-core` 실제 배포 | **성공** (us-west-2) |
+| `02-gateway` 실제 배포 | **성공** (us-west-2) |
 | Gateway MCP 호출 end-to-end | **성공** |
 
 `cfn-lint` 1.55 의 번들 스키마에는 AgentCore 리소스가 없습니다 (46개 리전 폴더 전체에
@@ -216,7 +216,7 @@ Lambda 는 MCP 를 구현하지 않았는데도 호출되었습니다. Gateway �
 
 # 2) Gateway MCP 검증
 python3 sample-data/tools/verify_gateway_mcp.py \
-  "$(aws cloudformation describe-stacks --stack-name bca-workshop-gateway --region us-east-1 \
+  "$(aws cloudformation describe-stacks --stack-name bca-workshop-gateway --region us-west-2 \
       --query 'Stacks[0].Outputs[?OutputKey==`GatewayUrl`].OutputValue' --output text)" \
   /path/to/access-token.txt
 ```
@@ -229,14 +229,14 @@ python3 sample-data/tools/verify_gateway_mcp.py \
 
 ```bash
 BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core \
-  --region us-east-1 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
+  --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' \
   --output text)
-aws s3 rm "s3://$BUCKET" --recursive --region us-east-1
+aws s3 rm "s3://$BUCKET" --recursive --region us-west-2
 
 # 스택은 생성의 역순으로 삭제합니다
-aws cloudformation delete-stack --stack-name bca-workshop-gateway --region us-east-1
-aws cloudformation wait stack-delete-complete --stack-name bca-workshop-gateway --region us-east-1
-aws cloudformation delete-stack --stack-name bca-workshop-core --region us-east-1
+aws cloudformation delete-stack --stack-name bca-workshop-gateway --region us-west-2
+aws cloudformation wait stack-delete-complete --stack-name bca-workshop-gateway --region us-west-2
+aws cloudformation delete-stack --stack-name bca-workshop-core --region us-west-2
 ```
 
 실습에서 직접 만든 리소스(Memory, Guardrail, Runtime)는 스택에 속하지 않으므로 별도로
