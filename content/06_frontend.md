@@ -191,17 +191,90 @@ lab6/
 
 ```python
 # lab6/app.py (이어서)
+import os
+import time
+import uuid
+import urllib.request
 
 REGION = "us-west-2"
+DATA_BUCKET = os.environ.get("DATA_BUCKET", "")
+GATEWAY_URL = os.environ.get("GATEWAY_URL", "")
+RUNTIME_ARN = os.environ.get("RUNTIME_ARN", "")
+
+s3 = boto3.client("s3", region_name=REGION)
+agentcore = boto3.client("bedrock-agentcore", region_name=REGION)
+
+
+def extract_via_gateway(s3_key, access_token):
+    """Gateway MCP 로 결과지를 추출합니다(Lab 1 도구를 Gateway 경유로 호출)."""
+    payload = {
+        "jsonrpc": "2.0", "id": 1, "method": "tools/call",
+        "params": {
+            "name": "bodyCompositionExtractor___extract_body_composition",
+            "arguments": {"s3_key": s3_key},
+        },
+    }
+    req = urllib.request.Request(
+        GATEWAY_URL,
+        data=json.dumps(payload).encode(),
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+            "Authorization": f"Bearer {access_token}",
+        },
+    )
+    with urllib.request.urlopen(req, timeout=60) as r:
+        body = r.read().decode()
+
+    # 응답이 JSON 또는 SSE(data: ...) 형식일 수 있습니다 (Lab 1 verify_gateway_mcp.py 참고)
+    obj = json.loads(body) if body.strip().startswith("{") else None
+    if obj is None:
+        for line in body.splitlines():
+            if line.strip().startswith("data:"):
+                obj = json.loads(line.strip()[5:])
+                break
+    text = obj["result"]["content"][0]["text"]
+    return json.loads(text)
+
+
+def invoke_supervisor(measurement, user_sub, session_id):
+    """Lab 5 Runtime(Supervisor)을 호출해 코칭 결과를 받습니다."""
+    resp = agentcore.invoke_agent_runtime(
+        agentRuntimeArn=RUNTIME_ARN,
+        contentType="application/json",
+        payload=json.dumps({
+            "prompt": json.dumps({
+                "measurement": measurement,
+                "user_sub": user_sub,
+                "session_id": session_id,
+            }, ensure_ascii=False)
+        }),
+    )
+    return json.loads(resp["response"].read())
+
 
 uploaded = st.file_uploader("체성분 결과지 PDF 업로드", type="pdf")
 if uploaded is not None:
-    # (추출은 Lab 1 도구/Gateway 로. 여기서는 결과에 sheet_name, measurement 가 있다고 가정)
-    result = {"sheet_name": "김도현", "measurement": {}}   # 데모용 자리표시자
+    with st.spinner("결과지에서 값을 추출하는 중..."):
+        s3_key = f"measurements/upload-{uuid.uuid4().hex}.pdf"
+        s3.put_object(Bucket=DATA_BUCKET, Key=s3_key, Body=uploaded.getvalue())
+
+        # 액세스 토큰을 꺼내 Gateway 호출에 사용합니다
+        # TODO ④: 노출된 액세스 토큰을 꺼냅니다
+        access_token = st.user.get("________")
+        extracted = extract_via_gateway(s3_key, access_token)
+
+    if extracted.get("status") not in ("OK", "VALIDATION_FAILED"):
+        st.error(f"추출 실패: {extracted.get('status')}")
+        st.stop()
+
+    measurement = extracted["measurement"]
+    sheet_name = measurement.get("name")
 
     # TODO ③: 로그인 이름과 결과지 이름을 대조하는 본인 확인 판정을 받습니다
     from identity import verify_identity   # Lab 1 의 편집거리 판정 재사용
-    verdict = verify_identity(display_name, result["________"])
+    verdict = verify_identity(display_name, ________)
 
     if verdict == "BLOCK":
         st.error("업로드한 결과지의 이름이 로그인 사용자와 다릅니다. 본인 결과지만 분석할 수 있습니다.")
@@ -209,14 +282,17 @@ if uploaded is not None:
     elif verdict == "WARN":
         st.warning("결과지 이름이 로그인 사용자와 근소하게 다릅니다(스캔 오독 가능). 본인 결과지가 맞는지 확인하세요.")
 
-    # 액세스 토큰을 꺼내 에이전트/Gateway 호출에 사용합니다
-    # TODO ④: 노출된 액세스 토큰을 꺼냅니다
-    access_token = st.user.get("________")
-
     st.success("본인 확인 완료. 분석을 요청합니다.")
-    # 여기서 Runtime(agentcore invoke) 또는 Gateway 를 access_token 과 함께 호출합니다
-    # 이름은 넘기지 않습니다(경계 설계) — measurement 만 전달
-    st.json({"has_token": bool(access_token)})
+    with st.spinner("Supervisor 에이전트가 분석 중입니다(수십 초 소요)..."):
+        # 이름은 에이전트에 넘기지 않습니다(경계 설계) — measurement 만 전달
+        safe_measurement = {k: v for k, v in measurement.items() if k != "name"}
+        result = invoke_supervisor(
+            safe_measurement,
+            user_sub=st.user.get("sub", "unknown"),
+            session_id=f"session-{time.strftime('%Y-%m-%d')}",
+        )
+
+    st.markdown(result.get("result", "결과 없음"))
 ```
 
 ### Step 4: 컨테이너 이미지 만들기
@@ -447,6 +523,8 @@ aws ecs update-express-gateway-service \
 - [ ] 이미지가 ECR 에 push 되고 Express 서비스가 `ACTIVE`
 - [ ] 로그인 후 사용자 이름이 화면에만 표시(에이전트 페이로드에는 없음)
 - [ ] 업로드 시 본인 확인이 PASS/WARN/BLOCK 로 분기
+- [ ] 업로드한 PDF 가 S3 에 저장되고 Gateway 로 실제 `measurement` 가 추출됨(자리표시자 아님)
+- [ ] Supervisor 호출 결과(소견·운동·식단)가 화면에 표시됨
 - [ ] 서비스 URL(`*.ecs.us-west-2.on.aws`)로 HTTPS 접속·로그인 성공
 - [ ] `HostedCallbackUrl` 파라미터가 실제 서비스 URL 로 갱신됨
 
@@ -469,6 +547,8 @@ aws ecs update-express-gateway-service \
 | LoadBalancer 가 `PROVISIONING` 에서 `ec2:DescribeAccountAttributes` AccessDenied 로 멈춤 | 관리형 정책에 이 권한이 없음(실측 확인) | Step 5 의 `put-role-policy` 인라인 정책 추가 후 서비스 삭제·재생성 |
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
 | `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) | `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 확인. `None` 이면 Step 5 의 `create-express-gateway-service` 에 `--task-role-arn` 을 포함해 재생성 |
+| `extract_via_gateway`/`invoke_supervisor` 가 빈 URL·ARN 으로 실패 | `GATEWAY_URL`·`RUNTIME_ARN` 환경변수 미전달 | Step 5 의 `create-express-gateway-service` 의 `primaryContainer.environment` 에 세 값이 들어갔는지 `describe-express-gateway-service` 로 확인 |
+| 업로드 후 `KeyError`/`JSONDecodeError` | Gateway 응답 형식(JSON/SSE) 파싱 실패 | Lab 1 의 `verify_gateway_mcp.py` 로 같은 Gateway 를 호출해 응답 형태를 먼저 확인 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
 | `HostedCallbackUrl` 갱신이 `must contain a scheme` 오류 | `APP_URL` 에 `https://` 누락 | `ingressPaths[].endpoint` 가 스킴 없이 반환될 수 있음. Step 6 의 스킴 보정 코드 확인 |
@@ -519,13 +599,14 @@ Lab 1 의 `verify_identity`/`_edit_distance` 를 `lab6/identity.py` 로 옮겨 �
 Lambda 전용인 `pdfplumber`·`boto3`·S3 호출 코드가 Streamlit 이미지에 불필요한 의존성을
 더합니다.
 
-**TODO ③ — 결과지 이름 키**
+**TODO ③ — 결과지 이름 대조**
 
 ```python
-verdict = verify_identity(display_name, result["sheet_name"])
+verdict = verify_identity(display_name, sheet_name)
 ```
 
-추출 결과의 결과지 이름을 로그인 이름과 대조합니다. 완전일치/편집거리1/그외로 분기(Lab 1).
+Gateway 추출 결과(`measurement.get("name")`)로 얻은 결과지 이름을 로그인 이름과 대조합니다.
+완전일치/편집거리1/그외로 분기(Lab 1).
 
 **TODO ④ — 액세스 토큰 추출**
 
@@ -559,7 +640,7 @@ Streamlit 기본 포트는 8501 입니다. `--server.port=8501`, Express 의 `co
 |---|------|------|
 | ① | `access` | Gateway 가 요구하는 액세스 토큰 노출 |
 | ② | `st.login` | Cognito OIDC 로그인 시작 |
-| ③ | `sheet_name` | 본인 확인용 결과지 이름 |
+| ③ | `sheet_name` | 본인 확인용 결과지 이름(추출 결과의 `name` 값) |
 | ④ | `access` | 노출된 액세스 토큰 키 |
 | ⑤ | `8501` | Streamlit 포트(EXPOSE·server.port·containerPort 일치) |
 | ⑥ | `HostedCallbackUrl` | 배포 후 콜백 URL 파라미터 |
