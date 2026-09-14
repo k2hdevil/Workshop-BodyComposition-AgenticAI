@@ -186,31 +186,45 @@ export GUARDRAIL_VERSION=<version, 보통 "DRAFT">
 
 ---
 
-**Memory 연결 — `app/BcaWorkshop/main.py` 수정**
+---
 
-`invoke` 함수에서 코칭 결과를 Memory 에 저장합니다. `user_sub` 는 Cognito 토큰에서 추출하고
-`session_id` 는 호출마다 전달받습니다.
+> **캐시는 Action Item 으로 남깁니다.** Lab 4 의 `cache_demo.py` 는 `boto3 converse()` 의
+> `cachePoint` 를 직접 씁니다. Strands `BedrockModel` 은 현재 `cachePoint` 를 지원하지
+> 않으므로, 전문 에이전트에 캐시를 붙이려면 Strands 의 raw Bedrock 클라이언트를 커스터마이징
+> 해야 합니다. 이 워크샵의 시간 범위를 벗어나므로 `99_cleanup.md` 의 Action Items 에서
+> 이어갑니다.
+
+**정상 동작 확인**: `agents.py` 를 import 해도 오류가 없고, `GUARDRAIL_ID` 환경변수를 설정한
+상태에서 `main.py` 를 실행하면 `create_guardrail` 이 다시 호출되지 않습니다.
+
+### Step 3: entrypoint 작성 — Memory 연동 포함
+
+`agentcore create` 가 생성한 `app/BcaWorkshop/main.py` 를 아래 내용으로 교체합니다.
+TODO ①② 를 채우고, Step 2 에서 설정한 환경변수(`MEMORY_ID`)를 활용해 Memory 와 연결합니다.
 
 ```python
-# app/BcaWorkshop/main.py (memory 연동 추가)
+# app/BcaWorkshop/main.py
 import os
 from agents import coach
 from memory_store import save_session
-from bedrock_agentcore import BedrockAgentCoreApp
+
+# TODO ①: AgentCore 앱 래퍼를 가져옵니다
+from bedrock_agentcore import ________
 
 app = BedrockAgentCoreApp()
 
 MEMORY_ID = os.environ.get("MEMORY_ID")   # Lab 3 에서 만든 memory_id
 
 
-@app.entrypoint
+# TODO ②: 이 함수를 Runtime 진입점으로 표시하세요
+@app.________
 def invoke(payload):
     """Runtime 진입점.
 
     Args:
         payload: {
             "measurement": {...},      # 정규화된 측정값
-            "user_sub": "...",         # Cognito sub (사용자 격리 키)
+            "user_sub": "...",         # Cognito sub (사용자 격리 키, 이름 아님)
             "session_id": "..."        # 회차 식별자 (예: "session-2026-08-14")
         }
     """
@@ -225,61 +239,22 @@ def invoke(payload):
         save_session(MEMORY_ID, user_sub, session_id, measurement)
 
     return {"result": result}
-```
-
-`MEMORY_ID` 환경변수로 넘깁니다:
-
-```bash
-export MEMORY_ID=<Lab 3 에서 만든 memory_id>
-```
-
----
-
-> **캐시는 Action Item 으로 남깁니다.** Lab 4 의 `cache_demo.py` 는 `boto3 converse()` 의
-> `cachePoint` 를 직접 씁니다. Strands `BedrockModel` 은 현재 `cachePoint` 를 지원하지
-> 않으므로, 전문 에이전트에 캐시를 붙이려면 Strands 의 raw Bedrock 클라이언트를 커스터마이징
-> 해야 합니다. 이 워크샵의 시간 범위를 벗어나므로 `99_cleanup.md` 의 Action Items 에서
-> 이어갑니다.
-
-**정상 동작 확인**: `agents.py` 를 import 해도 오류가 없고, `GUARDRAIL_ID` 환경변수를 설정한
-상태에서 `main.py` 를 실행하면 `create_guardrail` 이 다시 호출되지 않습니다.
-
-### Step 3: entrypoint 확인
-
-Step 2 에서 Memory 연동까지 포함한 `main.py` 를 이미 작성했습니다. TODO ①② 빈칸만 채우면
-됩니다.
-
-```python
-# app/BcaWorkshop/main.py
-from agents import coach   # Step 1 에서 복사한 Lab 2 Supervisor
-
-# TODO ①: AgentCore 앱 래퍼를 가져옵니다
-from bedrock_agentcore import ________
-
-app = BedrockAgentCoreApp()
-
-
-# TODO ②: 이 함수를 Runtime 진입점으로 표시하세요
-@app.________
-def invoke(payload):
-    """Runtime 진입점. payload 로 측정값을 받아 코칭 결과를 반환합니다.
-
-    Args:
-        payload: {"measurement": {...}} 형태의 요청 본문.
-    """
-    measurement = payload["measurement"]
-    # 이름은 에이전트로 넘기기 전에 제거합니다(경계 설계). coach 내부에서도 재확인.
-    result = coach(measurement)   # Lab 2 의 Supervisor
-    return {"result": result}
 
 
 if __name__ == "__main__":
     app.run()
 ```
 
-> `coach` 는 Step 1 에서 `app/BcaWorkshop/` 에 복사한 `agents.py` 의 함수입니다.
-> Guardrail(Lab 4)을 붙인 모델을 쓰려면 `guardrail.py` 의 `build_guarded_model` 을
-> `agents.py` 의 모델 초기화 부분에 연결하세요.
+`MEMORY_ID` 환경변수를 설정합니다:
+
+```bash
+export MEMORY_ID=<Lab 3 에서 만든 memory_id>
+```
+
+> **캐시는 Action Item 으로 남깁니다.** Strands `BedrockModel` 은 현재 `cachePoint` 를 지원하지
+> 않으므로, 전문 에이전트에 캐시를 붙이려면 Strands 의 raw Bedrock 클라이언트를 커스터마이징
+> 해야 합니다. 이 워크샵의 시간 범위를 벗어나므로 `99_cleanup.md` 의 Action Items 에서
+> 이어갑니다.
 
 ### Step 4: 로컬 테스트
 
@@ -346,7 +321,7 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 ## 검증
 
 - [ ] `agentcore dev` 로 로컬 `/invocations` 가 200 반환
-- [ ] `agents.py` 의 `model` 이 `build_guarded_model()` 로 교체됨 (Guardrail 연결)
+- [ ] `agents.py` 의 `model` 이 Guardrail 인자(`guardrail_id`, `guardrail_version`)를 포함한 `BedrockModel` 로 교체됨
 - [ ] `main.py` 의 `invoke` 가 `save_session()` 을 호출함 (Memory 연결)
 - [ ] `main.py` 에 `@app.entrypoint` 진입점 존재
 - [ ] 배포 시 `AgentRuntimeRoleArn` 을 실행 역할로 지정
