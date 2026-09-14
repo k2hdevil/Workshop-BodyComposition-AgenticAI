@@ -222,12 +222,13 @@ TODO ①② 를 채우고, Step 2 에서 설정한 환경변수(`MEMORY_ID`)를 
 
 ```python
 # app/BcaWorkshop/main.py
-import json
+# TODO ①: JSON 파싱에 필요한 표준 라이브러리를 가져옵니다
+import ________
 import os
 from agents import coach
 from memory_store import save_session
 
-# TODO ①: AgentCore 앱 래퍼를 가져옵니다
+# TODO ②: AgentCore 앱 래퍼를 가져옵니다
 from bedrock_agentcore import ________
 
 app = BedrockAgentCoreApp()
@@ -235,7 +236,7 @@ app = BedrockAgentCoreApp()
 MEMORY_ID = os.environ.get("MEMORY_ID")   # Lab 3 에서 만든 memory_id
 
 
-# TODO ②: 이 함수를 Runtime 진입점으로 표시하세요
+# TODO ③: 이 함수를 Runtime 진입점으로 표시하세요
 @app.________
 def invoke(payload):
     """Runtime 진입점.
@@ -413,9 +414,18 @@ Transaction Search 에서 이 호출의 트레이스(도구 호출 순서 포함
 ## 부록: 정답 코드
 
 <details>
-<summary>agent_runtime.py · 배포 TODO ①~③ 정답 (클릭하여 펼치기)</summary>
+<summary>main.py · 배포 TODO ①~④ 정답 (클릭하여 펼치기)</summary>
 
-**TODO ① — 앱 래퍼 import**
+**TODO ① — JSON import**
+
+```python
+import json
+```
+
+`agentcore invoke` 가 입력을 `{"prompt": "..."}` 로 감싸 전달하므로, `payload["prompt"]`
+문자열을 JSON 으로 파싱해야 합니다.
+
+**TODO ② — 앱 래퍼 import**
 
 ```python
 from bedrock_agentcore import BedrockAgentCoreApp
@@ -423,7 +433,7 @@ from bedrock_agentcore import BedrockAgentCoreApp
 
 `BedrockAgentCoreApp` 이 HTTP 서버(`/invocations`, `/ping`)를 대신 처리합니다.
 
-**TODO ② — 진입점 데코레이터**
+**TODO ③ — 진입점 데코레이터**
 
 ```python
 @app.entrypoint
@@ -433,7 +443,7 @@ def invoke(payload):
 `@app.entrypoint` 가 이 함수를 `/invocations` 핸들러로 등록합니다. 서버 코드를 직접 쓰지
 않아도 됩니다.
 
-**TODO ③ — 배포 명령**
+**TODO ④ — 배포 명령**
 
 ```bash
 agentcore deploy -y
@@ -447,8 +457,9 @@ agentcore deploy -y
 
 | # | 정답 | 설명 |
 |---|------|------|
-| ① | `BedrockAgentCoreApp` | HTTP 서비스 컨트랙트 래퍼 |
-| ② | `entrypoint` | `/invocations` 진입점 등록 |
-| ③ | `deploy -y` | zip 패키징·업로드·배포 (실행 역할은 agentcore.json 에 사전 설정) |
+| ① | `json` | prompt 문자열을 JSON 으로 파싱하는 표준 라이브러리 |
+| ② | `BedrockAgentCoreApp` | HTTP 서비스 컨트랙트 래퍼 |
+| ③ | `entrypoint` | `/invocations` 진입점 등록 |
+| ④ | `deploy -y` | zip 패키징·업로드·배포 (실행 역할은 agentcore.json 에 사전 설정) |
 
 </details>
