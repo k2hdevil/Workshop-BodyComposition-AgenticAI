@@ -138,17 +138,22 @@ cd ../..   # BcaWorkshop/ 루트로 돌아옵니다 (agentcore dev/deploy 는 �
 
 **Guardrail 연결 — `app/BcaWorkshop/agents.py` 상단 수정**
 
-`agents.py` 상단의 module-level `model` 정의를 Guardrail 이 붙은 모델로 교체합니다.
-`model` 은 모든 전문 에이전트가 공유하므로, 여기 한 곳만 바꾸면 에이전트 4개에 Guardrail
-이 일괄 적용됩니다.
+`agents.py` 에는 지금 이 줄이 있습니다.
 
 ```python
-# app/BcaWorkshop/agents.py 상단 — 기존 model 정의를 아래로 교체합니다
+# 현재 (Lab 2 에서 작성한 그대로)
+model = BedrockModel(model_id=MODEL_ID, temperature=0.2)
+```
+
+이 줄을 Guardrail 이 붙은 모델로 교체합니다. `model` 은 세 전문 에이전트가 공유하므로
+여기 한 곳만 바꾸면 에이전트 4개에 Guardrail 이 일괄 적용됩니다.
+
+```python
+# 위 한 줄을 아래 블록으로 교체합니다
 import os
 from guardrail import create_guardrail, build_guarded_model
 
-# Guardrail 을 생성하고 모든 에이전트가 쓸 공통 모델에 붙입니다
-# GUARDRAIL_ID / GUARDRAIL_VERSION 환경변수가 있으면 재사용, 없으면 새로 생성합니다
+# GUARDRAIL_ID 환경변수가 있으면 Lab 4 리소스를 재사용, 없으면 새로 생성합니다
 _gid = os.environ.get("GUARDRAIL_ID")
 _ver = os.environ.get("GUARDRAIL_VERSION")
 if not _gid:
