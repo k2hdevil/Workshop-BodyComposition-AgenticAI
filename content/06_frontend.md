@@ -190,11 +190,13 @@ CMD ["streamlit", "run", "app.py", \
      "--server.port=8501", "--server.address=0.0.0.0"]
 ```
 
-로컬에서 먼저 로그인·업로드 흐름을 확인합니다(컨테이너 없이).
+로컬에서 앱이 정상적으로 시작되는지 확인합니다. **Cognito 실제 로그인은 ECS 배포 후
+HTTPS URL 에서만 동작합니다.** 여기서는 앱이 뜨고 로그인 버튼이 보이는지까지만 확인합니다.
 
 ```bash
 uv run streamlit run app.py
-# 브라우저에서 로그인 → 결과지 업로드 → 본인 확인 메시지 확인
+# 브라우저에서 http://localhost:8501 접속 → 로그인 버튼이 보이면 정상
+# 실제 Cognito 로그인은 Step 5 ECS 배포 후 테스트합니다
 ```
 
 ECR 리포지토리를 만들고 이미지를 올립니다.
@@ -314,6 +316,7 @@ aws cloudformation deploy \
 | 토큰을 꺼낼 수 없음 | `expose_tokens` 누락 | `secrets.toml` 에 `expose_tokens = ["access"]` 추가 |
 | Gateway 호출 403 | ID 토큰 사용 | 액세스 토큰을 넘김. 그래도 실패 시 Runtime 경유로 우회 |
 | `st.login` 이 없음 | Streamlit 버전 낮음 | Streamlit 1.42+ 로 업그레이드 |
+| 로그인 버튼이 CloudFront Not Found 로 이동 | 로컬 환경 한계 | 정상. 실제 Cognito 로그인은 ECS 배포(Step 5) 후 HTTPS URL 에서 테스트하세요 |
 | Express 생성이 assume-role 오류 | IAM 역할 전파 지연 | 약 1분 후 재시도 |
 | 헬스체크 실패로 ACTIVE 안 됨 | 포트·경로 불일치 | `containerPort` 8501, `--health-check-path /_stcore/health` 확인 |
 | 태스크가 `exec format error` 로 안 뜸 | arm64 이미지를 x86 Fargate 에 배포 | `--platform linux/amd64` 로 다시 빌드·push |
