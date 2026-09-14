@@ -154,6 +154,7 @@ model = BedrockModel(model_id=MODEL_ID, temperature=0.2)         # ← 이 줄�
 # 위 한 줄을 아래 블록으로 교체합니다
 import os
 from guardrail import create_guardrail
+from strands.models.bedrock import CacheConfig
 
 # GUARDRAIL_ID 환경변수가 있으면 Lab 4 리소스를 재사용, 없으면 새로 생성합니다
 _gid = os.environ.get("GUARDRAIL_ID")
@@ -161,12 +162,14 @@ _ver = os.environ.get("GUARDRAIL_VERSION")
 if not _gid:
     _gid, _ver = create_guardrail()
 
-# temperature=0.2 는 처방 일관성을 위한 설정 — Guardrail 추가 시에도 유지합니다
+# Guardrail + 캐시를 한 번에 적용합니다
+# temperature=0.2 는 처방 일관성, cache_config 는 시스템 프롬프트·도구 정의 자동 캐시
 model = BedrockModel(
     model_id=MODEL_ID,
     guardrail_id=_gid,
     guardrail_version=_ver,
     temperature=0.2,
+    cache_config=CacheConfig(strategy="auto"),
 )
 ```
 
@@ -259,25 +262,9 @@ aws bedrock-agentcore-control list-memories \
 export MEMORY_ID=<위 명령 출력값>
 ```
 
-> **캐시 통합**: Strands `BedrockModel` 은 `CacheConfig` 를 통해 프롬프트 캐시를 지원합니다.
-> `agents.py` 에서 `model` 생성 시 `cache_config=CacheConfig(strategy="auto")` 를 추가하면
-> 시스템 프롬프트와 도구 정의를 자동으로 캐시합니다. `CacheConfig` 를 import 한 뒤 아래처럼
-> 추가하세요.
->
-> ```python
-> from strands.models.bedrock import BedrockModel, CacheConfig
->
-> model = BedrockModel(
->     model_id=MODEL_ID,
->     guardrail_id=_gid,
->     guardrail_version=_ver,
->     temperature=0.2,
->     cache_config=CacheConfig(strategy="auto"),   # 시스템 프롬프트·도구 정의 자동 캐시
-> )
-> ```
->
-> Claude Sonnet 4.5 기준 캐시 최소 토큰은 1,024 입니다. `strategy="auto"` 는 Bedrock 이
-> 캐시 가능한 prefix 를 자동으로 판단합니다.
+> **캐시 통합**: 위 교체 블록에 `cache_config=CacheConfig(strategy="auto")` 가 이미 포함되어
+> 있습니다. `strategy="auto"` 는 Bedrock 이 시스템 프롬프트와 도구 정의를 자동으로 캐시합니다.
+> Claude Sonnet 4.5 기준 캐시 최소 토큰은 1,024 입니다.
 
 ### Step 4: 로컬 테스트
 
