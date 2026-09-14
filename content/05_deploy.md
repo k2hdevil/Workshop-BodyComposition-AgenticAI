@@ -151,7 +151,7 @@ model = BedrockModel(model_id=MODEL_ID, temperature=0.2)
 ```python
 # 위 한 줄을 아래 블록으로 교체합니다
 import os
-from guardrail import create_guardrail, build_guarded_model
+from guardrail import create_guardrail
 
 # GUARDRAIL_ID 환경변수가 있으면 Lab 4 리소스를 재사용, 없으면 새로 생성합니다
 _gid = os.environ.get("GUARDRAIL_ID")
@@ -159,7 +159,13 @@ _ver = os.environ.get("GUARDRAIL_VERSION")
 if not _gid:
     _gid, _ver = create_guardrail()
 
-model = build_guarded_model(_gid, _ver)
+# temperature=0.2 는 처방 일관성을 위한 설정 — Guardrail 추가 시에도 유지합니다
+model = BedrockModel(
+    model_id=MODEL_ID,
+    guardrail_id=_gid,
+    guardrail_version=_ver,
+    temperature=0.2,
+)
 ```
 
 > `create_guardrail()` 은 매번 새 리소스를 만듭니다. 워크샵에서는 Lab 4 에서 이미 만든
