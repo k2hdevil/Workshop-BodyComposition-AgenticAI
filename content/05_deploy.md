@@ -245,10 +245,16 @@ if __name__ == "__main__":
     app.run()
 ```
 
-`MEMORY_ID` 환경변수를 설정합니다:
+`MEMORY_ID` 환경변수를 설정합니다. Lab 3 에서 출력한 `memory_id` 를 복사해 쓰거나,
+아래 명령으로 조회합니다. 응답의 `id` 필드에 생성 시 지정한 이름이 prefix 로 포함됩니다.
 
 ```bash
-export MEMORY_ID=<Lab 3 에서 만든 memory_id>
+# 전체 Memory 목록 조회 — BodyCompositionTrend- 로 시작하는 id 를 찾습니다
+aws bedrock-agentcore-control list-memories \
+  --query 'memories[?contains(id, `BodyCompositionTrend`)].id' \
+  --output text
+
+export MEMORY_ID=<위 명령 출력값>
 ```
 
 > **캐시는 Action Item 으로 남깁니다.** Strands `BedrockModel` 은 현재 `cachePoint` 를 지원하지
