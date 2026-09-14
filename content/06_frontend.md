@@ -299,6 +299,13 @@ SERVICE_ARN=$(aws ecs list-services --region us-west-2 \
 APP_URL=$(aws ecs describe-express-gateway-service \
   --service-arn "$SERVICE_ARN" --region us-west-2 \
   --query 'service.activeConfigurations[0].ingressPaths[0].endpoint' --output text)
+
+# endpoint 값이 스킴 없이(호스트명만) 반환되는 경우가 있습니다(실측 확인).
+# Cognito CallbackURL 은 스킴이 필수이므로 없으면 https:// 를 붙입니다.
+case "$APP_URL" in
+  https://*) ;;
+  *) APP_URL="https://$APP_URL" ;;
+esac
 echo "$APP_URL"   # 예: https://bc-00fcb754df8d4f21ade08f2e3542727e.ecs.us-west-2.on.aws
 
 # TODO ⑥: 콜백 URL 파라미터를 실제 서비스 URL 로 갱신합니다(경로는 /oauth2callback)
@@ -349,6 +356,7 @@ aws cloudformation deploy \
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
+| `HostedCallbackUrl` 갱신이 `must contain a scheme` 오류 | `APP_URL` 에 `https://` 누락 | `ingressPaths[].endpoint` 가 스킴 없이 반환될 수 있음. Step 6 의 스킴 보정 코드 확인 |
 | 화면에 결과지 이름이 뜸 | 표시용/검증용 혼동 | 화면에는 Cognito 이름만. 결과지 이름은 대조에만 |
 
 ---
