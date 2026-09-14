@@ -185,7 +185,7 @@ aws s3 ls "s3://$BUCKET/measurements/" --region us-west-2
 
 **정상 동작 확인**: `s3 ls` 결과에 PDF 4건.
 
-### Step 4: gateway 스택 배포 (선택)
+### Step 4: gateway 스택 배포
 
 추출 Lambda 와 AgentCore Gateway 를 만듭니다. 약 3~5분 걸립니다.
 
@@ -206,9 +206,6 @@ aws cloudformation describe-stacks --stack-name bca-workshop-gateway \
   --query 'Stacks[0].Outputs[?OutputKey==`GatewayStatus`].OutputValue' --output text
 # 예상 출력: READY
 ```
-
-> 이 스택은 **선택**입니다. 배포하지 않거나 실패해도 Lab 1 은 Runtime 내부(in-process)
-> 추출 경로로 진행됩니다. Gateway · MCP 부분만 건너뜁니다.
 
 **정상 동작 확인**: `GatewayStatus` 가 `READY`. `CREATING` 이면 잠시 후 다시 확인.
 
