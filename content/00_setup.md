@@ -112,9 +112,20 @@ Gateway 를 호출하며 확인합니다.
 ## 환경 확인
 
 여기서부터는 코드를 쓰지 않고, 사전 프로비저닝된 리소스를 배포·확인만 합니다.
-전 실습이 **`us-west-2`(N. Virginia) 리전 하나**를 사용합니다.
+전 실습이 **`us-west-2`(Oregon) 리전 하나**를 사용합니다.
 
-### Step 1: 자격 증명과 리전 확인
+### Step 1: 저장소 클론
+
+```bash
+git clone https://github.com/k2hdevil/Workshop-BodyComposition-AgenticAI
+cd Workshop-BodyComposition-AgenticAI
+```
+
+**정상 동작 확인**: `Workshop-BodyComposition-AgenticAI` 디렉터리가 생성되고, 그 안에
+`content/`·`infra/`·`sample-data/` 폴더가 보입니다. 이후 모든 명령은 이 디렉터리
+루트에서 실행합니다.
+
+### Step 2: 자격 증명과 리전 확인
 
 ```bash
 aws sts get-caller-identity
@@ -137,7 +148,7 @@ export AWS_DEFAULT_REGION=us-west-2
 
 **정상 동작 확인**: `get-caller-identity` 가 계정 번호를 반환하고 리전이 `us-west-2`.
 
-### Step 2: core 스택 배포 (필수)
+### Step 3: core 스택 배포 (필수)
 
 S3 버킷, Cognito User Pool, IAM 역할 2개를 만듭니다. 약 2분 걸립니다.
 
@@ -166,7 +177,7 @@ aws cloudformation describe-stacks \
 
 **정상 동작 확인**: 스택 상태가 `CREATE_COMPLETE`, 출력값 표에 위 키들이 모두 존재.
 
-### Step 3: 샘플 결과지 업로드
+### Step 4: 샘플 결과지 업로드
 
 CloudFormation 은 S3 에 파일을 넣지 못하므로, 결과지 4건을 직접 올립니다.
 저장소 루트에서 실행하세요.
@@ -187,7 +198,7 @@ aws s3 ls "s3://$BUCKET/measurements/" --region us-west-2
 
 **정상 동작 확인**: `s3 ls` 결과에 PDF 4건.
 
-### Step 4: gateway 스택 배포
+### Step 5: gateway 스택 배포
 
 추출 Lambda 와 AgentCore Gateway 를 만듭니다. 약 3~5분 걸립니다.
 
@@ -211,7 +222,7 @@ aws cloudformation describe-stacks --stack-name bca-workshop-gateway \
 
 **정상 동작 확인**: `GatewayStatus` 가 `READY`. `CREATING` 이면 잠시 후 다시 확인.
 
-### Step 5: 테스트 사용자 생성 · 액세스 토큰 획득
+### Step 6: 테스트 사용자 생성 · 액세스 토큰 획득
 
 Lab 1~5 는 프론트엔드가 없는 상태에서 Gateway 와 에이전트를 호출합니다. 그래서
 브라우저 로그인 대신 CLI 로 토큰을 받습니다(App Client 에 `ADMIN_USER_PASSWORD_AUTH`
@@ -299,6 +310,7 @@ Lab 1 에서 이 파일을 그대로 씁니다.
 
 ## 검증
 
+- [ ] 저장소가 클론되어 `content/`·`infra/`·`sample-data/` 폴더가 보임
 - [ ] `aws sts get-caller-identity` 가 계정 번호를 반환하고 리전이 `us-west-2`
 - [ ] `bca-workshop-core` 스택이 `CREATE_COMPLETE`
 - [ ] core 출력값 표에 `DataBucketName` · `UserPoolId` · `AgentRuntimeRoleArn` 존재

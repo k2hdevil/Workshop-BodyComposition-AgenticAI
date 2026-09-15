@@ -16,7 +16,7 @@
 | 레벨 | 300 (고급) |
 | 대상 | AI/ML 엔지니어, 백엔드·풀스택 개발자, 솔루션 아키텍트 |
 | 핵심 기술 | Amazon Bedrock AgentCore, Strands Agents SDK, Claude Sonnet 4.5 |
-| 리전 | us-west-2 (N. Virginia) |
+| 리전 | us-west-2 (Oregon) |
 | IDE | VS Code Server (EC2, 브라우저 접속) |
 | 결과물 | **HTTPS로 접속 가능한 배포된 웹 앱** |
 

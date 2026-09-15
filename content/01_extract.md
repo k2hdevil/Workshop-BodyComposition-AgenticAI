@@ -85,7 +85,7 @@ mkdir -p lab1 && cd lab1
 저장소에 있는 검증 스크립트를 그대로 씁니다.
 
 > 스크립트의 두 번째 인자 이름은 `ID_TOKEN_FILE` 이지만, 실제로는 **액세스 토큰** 파일을
-> 넣습니다(Gateway 는 액세스 토큰을 요구합니다 — 00_setup Step 5 참고).
+> 넣습니다(Gateway 는 액세스 토큰을 요구합니다 — 00_setup Step 6 참고).
 
 ```bash
 GATEWAY_URL=$(aws cloudformation describe-stacks --stack-name bca-workshop-gateway \
@@ -103,7 +103,7 @@ uv run python ../sample-data/tools/verify_gateway_mcp.py "$GATEWAY_URL" ../acces
 (3) Lambda 가 MCP 를 구현하지 않았는데도 Gateway 가 호출을 전달함. 지금 Lambda 는
 자리표시자라 `NOT_IMPLEMENTED` 를 돌려줍니다. 이제 이 Lambda 의 알맹이를 만듭니다.
 
-> gateway 스택은 `00_setup.md` Step 4 에서 배포해 `GatewayStatus=READY` 상태여야 합니다.
+> gateway 스택은 `00_setup.md` Step 5 에서 배포해 `GatewayStatus=READY` 상태여야 합니다.
 > 이 워크샵의 추출은 Gateway MCP 경유가 필수 경로입니다.
 
 ### Step 2: 추출 도구 뼈대 — 1차 pdfplumber 파싱
@@ -422,7 +422,7 @@ uv run python ../sample-data/tools/verify_gateway_mcp.py "$GATEWAY_URL" ../acces
 | 증상 | 원인 | 해결 |
 |------|------|------|
 | `verify_gateway_mcp.py` 가 CERTIFICATE_VERIFY_FAILED | macOS Python 이 시스템 키체인 미사용 | `certifi` 를 설치하면 스크립트가 자동으로 씀 (boto3 와 함께 설치되어 있는 경우가 많음) |
-| tools/call 이 HTTP 403 | ID 토큰을 넘김 | **액세스 토큰**을 사용. `access-token.txt` 재생성(00_setup Step 5) |
+| tools/call 이 HTTP 403 | ID 토큰을 넘김 | **액세스 토큰**을 사용. `access-token.txt` 재생성(00_setup Step 6) |
 | tools/call 이 HTTP 401 | 토큰 만료(8시간) | `admin-initiate-auth` 로 토큰 재발급 |
 | 스캔본이 `NO_TEXT_LAYER` 로 끝남 | 비전 폴백이 호출되지 않음 | `parse_with_pdfplumber` 가 텍스트 0자일 때 `None` 을 반환하는지 확인 |
 | Converse 가 `ValidationException` | document 블록 키 오타 | `format`/`name`/`source` 키 이름 확인. name 에 공백 금지 |

@@ -503,7 +503,7 @@ aws ecs update-express-gateway-service \
   --region us-west-2
 ```
 
-로그인 화면에서는 `00_setup.md` Step 5 에서 만든 테스트 사용자를 그대로 씁니다.
+로그인 화면에서는 `00_setup.md` Step 6 에서 만든 테스트 사용자를 그대로 씁니다.
 
 | 항목 | 값 |
 |------|-----|
