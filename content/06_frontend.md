@@ -444,24 +444,26 @@ aws ecs create-express-gateway-service \
 
 > **Dockerfile 을 고쳐서 이미지를 다시 push 했다면** — 같은 `:latest` 태그로 push해도
 > 서비스가 자동으로 새 이미지를 가져오지 않습니다. 아래 명령으로 새 배포를 강제하세요.
-> `taskRoleArn` 처럼 최상위 파라미터는 생략하면 기존 값이 유지되지만, **`--primary-container`
-> 는 컨테이너 설정 전체를 통째로 교체**합니다(부분 병합이 아닙니다). `environment` 를 빼고
-> 호출하면 `DATA_BUCKET`·`GATEWAY_URL`·`RUNTIME_ARN` 이 통째로 사라지므로, 재배포할 때마다
-> 항상 세 값을 같이 넘겨야 합니다.
+> **`--task-role-arn` 을 생략하면 유지되지 않고 사라지는 경우가 실측으로 확인됐습니다** —
+> 재배포할 때마다 항상 명시적으로 같이 넘기세요. `--primary-container` 도 컨테이너 설정
+> 전체를 통째로 교체하는 파라미터라(부분 병합이 아님) `environment` 를 빼면
+> `DATA_BUCKET`·`GATEWAY_URL`·`RUNTIME_ARN` 이 통째로 사라집니다. 두 파라미터 모두
+> 재배포 시 항상 함께 넘기세요.
 >
 > ```bash
 > aws ecs update-express-gateway-service \
 >   --service-arn "$SERVICE_ARN" \
 >   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501,\"environment\":[{\"name\":\"DATA_BUCKET\",\"value\":\"$DATA_BUCKET\"},{\"name\":\"GATEWAY_URL\",\"value\":\"$GATEWAY_URL\"},{\"name\":\"RUNTIME_ARN\",\"value\":\"$RUNTIME_ARN\"}]}" \
+>   --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
 >   --region us-west-2
 > ```
 >
-> 재배포 후 반드시 아래로 환경변수가 실제로 반영됐는지 확인하세요.
+> 재배포 후 반드시 아래로 환경변수·Task Role 이 실제로 반영됐는지 확인하세요.
 >
 > ```bash
 > aws ecs describe-express-gateway-service \
 >   --service-arn "$SERVICE_ARN" --region us-west-2 \
->   --query 'service.activeConfigurations[0].primaryContainer.environment'
+>   --query 'service.activeConfigurations[0].{taskRoleArn:taskRoleArn,environment:primaryContainer.environment}'
 > ```
 
 ### Step 6: 콜백 URL 갱신
@@ -517,10 +519,12 @@ grep redirect_uri .streamlit/secrets.toml
 docker build --no-cache --platform linux/amd64 -t "$IMAGE" .
 docker push "$IMAGE"
 
-# --primary-container 는 컨테이너 설정 전체를 교체하므로 environment 를 항상 같이 넘깁니다
+# --primary-container 는 컨테이너 설정 전체를 교체하고, --task-role-arn 도 생략하면
+# 유지되지 않는 경우가 실측으로 확인됐으므로 재배포할 때마다 항상 같이 넘깁니다
 aws ecs update-express-gateway-service \
   --service-arn "$SERVICE_ARN" \
   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501,\"environment\":[{\"name\":\"DATA_BUCKET\",\"value\":\"$DATA_BUCKET\"},{\"name\":\"GATEWAY_URL\",\"value\":\"$GATEWAY_URL\"},{\"name\":\"RUNTIME_ARN\",\"value\":\"$RUNTIME_ARN\"}]}" \
+  --task-role-arn "arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role" \
   --region us-west-2
 ```
 
@@ -567,7 +571,7 @@ aws ecs update-express-gateway-service \
 | `create-express-gateway-service` 가 서비스 연결 역할 오류 | `AWSServiceRoleForECS` 미생성 또는 전파 지연 | `aws iam create-service-linked-role --aws-service-name ecs.amazonaws.com` 실행. 이미 존재한다는 `taken` 오류면 정상이며, 1분 후 서비스 생성 재시도 |
 | LoadBalancer 가 `PROVISIONING` 에서 `ec2:DescribeAccountAttributes` AccessDenied 로 멈춤 | 관리형 정책에 이 권한이 없음(실측 확인) | Step 5 의 `put-role-policy` 인라인 정책 추가 후 서비스 삭제·재생성 |
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
-| `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) | `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 확인. `None` 이면 Step 5 의 `create-express-gateway-service` 에 `--task-role-arn` 을 포함해 재생성 |
+| `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) 또는 재배포 중 소실 | `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 확인. 최초 생성 후 `None` 이면 Step 5 의 `create-express-gateway-service` 에 `--task-role-arn` 을 포함해 재생성. **`update-express-gateway-service` 를 `--task-role-arn` 없이 호출하면 기존 값이 사라지는 경우가 실측으로 확인됨** — 재배포할 때마다 `--task-role-arn` 을 항상 같이 넘기고, `arn:aws:iam::$ACCOUNT:role/bca-frontend-task-role` 로 다시 설정 |
 | `extract_via_gateway`/`invoke_supervisor` 가 빈 URL·ARN 으로 실패 | `GATEWAY_URL`·`RUNTIME_ARN` 환경변수 미전달 | Step 5 의 `create-express-gateway-service` 의 `primaryContainer.environment` 에 세 값이 들어갔는지 `describe-express-gateway-service` 로 확인 |
 | "분석을 요청합니다" 이후 응답이 없음(스피너만 지속) | Step 5 재배포용 `update-express-gateway-service` 에서 `--primary-container` 에 `environment` 를 빼고 호출해 `DATA_BUCKET`·`GATEWAY_URL`·`RUNTIME_ARN` 이 통째로 사라짐 | `describe-express-gateway-service` 의 `activeConfigurations[0].primaryContainer.environment` 로 세 값이 비어 있는지 확인. 비어 있으면 Step 5 트러블슈팅의 재배포 명령(`environment` 포함)으로 다시 갱신 |
 | `RUNTIME_ARN` 조회가 빈 문자열 | `agentRuntimeName` 이 `BcaWorkshop` 과 정확히 일치하지 않음(실제로는 `BcaWorkshop_BcaWorkshop-<해시>`) | `aws bedrock-agentcore-control list-agent-runtimes` 로 실제 이름 확인 후 `contains(agentRuntimeName, 'BcaWorkshop')` 조건으로 조회. 컨테이너 환경변수에 빈 값이 들어간 채로 서비스가 갱신됐다면 값을 채워 재배포 필요 |
