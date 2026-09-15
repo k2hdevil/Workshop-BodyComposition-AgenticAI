@@ -439,14 +439,24 @@ aws ecs create-express-gateway-service \
 
 > **Dockerfile 을 고쳐서 이미지를 다시 push 했다면** — 같은 `:latest` 태그로 push해도
 > 서비스가 자동으로 새 이미지를 가져오지 않습니다. 아래 명령으로 새 배포를 강제하세요.
-> `taskRoleArn` 은 생성 시 지정했으므로 다시 넘길 필요가 없습니다 — `update-express-gateway-service`
-> 는 명시한 파라미터만 갱신하고 나머지는 기존 값을 유지합니다.
+> `taskRoleArn` 처럼 최상위 파라미터는 생략하면 기존 값이 유지되지만, **`--primary-container`
+> 는 컨테이너 설정 전체를 통째로 교체**합니다(부분 병합이 아닙니다). `environment` 를 빼고
+> 호출하면 `DATA_BUCKET`·`GATEWAY_URL`·`RUNTIME_ARN` 이 통째로 사라지므로, 재배포할 때마다
+> 항상 세 값을 같이 넘겨야 합니다.
 >
 > ```bash
 > aws ecs update-express-gateway-service \
 >   --service-arn "$SERVICE_ARN" \
->   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
+>   --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501,\"environment\":[{\"name\":\"DATA_BUCKET\",\"value\":\"$DATA_BUCKET\"},{\"name\":\"GATEWAY_URL\",\"value\":\"$GATEWAY_URL\"},{\"name\":\"RUNTIME_ARN\",\"value\":\"$RUNTIME_ARN\"}]}" \
 >   --region us-west-2
+> ```
+>
+> 재배포 후 반드시 아래로 환경변수가 실제로 반영됐는지 확인하세요.
+>
+> ```bash
+> aws ecs describe-express-gateway-service \
+>   --service-arn "$SERVICE_ARN" --region us-west-2 \
+>   --query 'service.activeConfigurations[0].primaryContainer.environment'
 > ```
 
 ### Step 6: 콜백 URL 갱신
@@ -456,12 +466,17 @@ Express 가 발급한 URL 로 Cognito 콜백을 갱신합니다. URL 은 배포 
 
 서비스 URL 은 Step 5 의 `create-express-gateway-service` 출력에 포함됩니다. 나중에 다시
 확인하려면 `describe-express-gateway-service` 를 쓰는데, 이 명령은 서비스 이름이 아니라
-**`--service-arn`** 을 받습니다. ARN 을 모르면 `list-services` 로 먼저 찾습니다.
+**`--service-arn`** 을 받습니다.
+
+> **주의**: Express 서비스는 `aws ecs list-services` 로 조회되지 않습니다(일반 ECS 클러스터
+> API 경로가 아니라서 `ClusterNotFoundException` 이 납니다 — 실측 확인). 대신 서비스 ARN 은
+> 생성 시 정해진 고정 규칙(`arn:aws:ecs:<리전>:<계정ID>:service/default/<서비스명>`)을 따르므로
+> 계정 ID 와 `--service-name` 으로 지정한 이름만 알면 직접 조립할 수 있습니다.
 
 ```bash
-# 서비스 ARN 을 이름으로 찾기 (describe 는 --service-arn 만 받으므로 ARN 을 먼저 확보)
-SERVICE_ARN=$(aws ecs list-services --region us-west-2 \
-  --query "serviceArns[?contains(@, 'bca-frontend')]" --output text)
+# 서비스 ARN 조립 (list-services 로는 조회되지 않으므로 고정 규칙으로 직접 구성)
+ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+SERVICE_ARN="arn:aws:ecs:us-west-2:$ACCOUNT:service/default/bca-frontend"
 
 # 서비스 URL 조회 (또는 Step 5 의 create 출력에서 복사)
 # URL 은 service.url 이 아니라 활성 구성의 ingressPaths[].endpoint 에 있습니다
@@ -497,9 +512,10 @@ grep redirect_uri .streamlit/secrets.toml
 docker build --no-cache --platform linux/amd64 -t "$IMAGE" .
 docker push "$IMAGE"
 
+# --primary-container 는 컨테이너 설정 전체를 교체하므로 environment 를 항상 같이 넘깁니다
 aws ecs update-express-gateway-service \
   --service-arn "$SERVICE_ARN" \
-  --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501}" \
+  --primary-container "{\"image\":\"$IMAGE\",\"containerPort\":8501,\"environment\":[{\"name\":\"DATA_BUCKET\",\"value\":\"$DATA_BUCKET\"},{\"name\":\"GATEWAY_URL\",\"value\":\"$GATEWAY_URL\"},{\"name\":\"RUNTIME_ARN\",\"value\":\"$RUNTIME_ARN\"}]}" \
   --region us-west-2
 ```
 
@@ -548,6 +564,7 @@ aws ecs update-express-gateway-service \
 | `create-express-gateway-service` 가 VPC 오류 | 기본 VPC 없음 | 기본 VPC 생성 또는 `--subnets` 로 서브넷 지정 |
 | `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) | `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 확인. `None` 이면 Step 5 의 `create-express-gateway-service` 에 `--task-role-arn` 을 포함해 재생성 |
 | `extract_via_gateway`/`invoke_supervisor` 가 빈 URL·ARN 으로 실패 | `GATEWAY_URL`·`RUNTIME_ARN` 환경변수 미전달 | Step 5 의 `create-express-gateway-service` 의 `primaryContainer.environment` 에 세 값이 들어갔는지 `describe-express-gateway-service` 로 확인 |
+| "분석을 요청합니다" 이후 응답이 없음(스피너만 지속) | Step 5 재배포용 `update-express-gateway-service` 에서 `--primary-container` 에 `environment` 를 빼고 호출해 `DATA_BUCKET`·`GATEWAY_URL`·`RUNTIME_ARN` 이 통째로 사라짐 | `describe-express-gateway-service` 의 `activeConfigurations[0].primaryContainer.environment` 로 세 값이 비어 있는지 확인. 비어 있으면 Step 5 트러블슈팅의 재배포 명령(`environment` 포함)으로 다시 갱신 |
 | 업로드 후 `KeyError`/`JSONDecodeError` | Gateway 응답 형식(JSON/SSE) 파싱 실패 | Lab 1 의 `verify_gateway_mcp.py` 로 같은 Gateway 를 호출해 응답 형태를 먼저 확인 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
