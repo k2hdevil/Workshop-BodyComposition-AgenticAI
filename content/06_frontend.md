@@ -396,9 +396,14 @@ DATA_BUCKET=$(aws cloudformation describe-stacks --stack-name bca-workshop-core 
   --region us-west-2 --query 'Stacks[0].Outputs[?OutputKey==`DataBucketName`].OutputValue' --output text)
 
 # Lab 5 에서 배포한 Runtime 의 ARN — app.py 가 invoke_agent_runtime 호출 시 씁니다
+# 주의: agentcore create --name BcaWorkshop 로 만들어도 실제 배포된 agentRuntimeName 은
+# 접미사가 붙어 `BcaWorkshop_BcaWorkshop-<해시>` 형태입니다(실측 확인). 정확히 일치하는
+# 조건으로는 찾지 못하므로 contains 로 찾습니다.
 RUNTIME_ARN=$(aws bedrock-agentcore-control list-agent-runtimes --region us-west-2 \
-  --query "agentRuntimes[?agentRuntimeName=='BcaWorkshop'].agentRuntimeArn" --output text)
+  --query "agentRuntimes[?contains(agentRuntimeName, 'BcaWorkshop')].agentRuntimeArn" --output text)
 echo "RUNTIME_ARN=$RUNTIME_ARN"
+# 결과가 여러 줄이면(재배포로 이전 리비전이 남아있는 경우) 최신 것만 콤마 없이 하나 골라
+# 셸 변수에 담아야 합니다. 예: RUNTIME_ARN=$(echo "$RUNTIME_ARN" | tail -1)
 
 aws iam put-role-policy --role-name bca-frontend-task-role \
   --policy-name frontend-agent-access \
@@ -565,6 +570,7 @@ aws ecs update-express-gateway-service \
 | `app.py` 의 `invoke_agent_runtime`/`s3.put_object` 가 AccessDenied | Task Role 미지정(`taskRoleArn` 이 `None`) | `describe-express-gateway-service` 의 `activeConfigurations[0].taskRoleArn` 확인. `None` 이면 Step 5 의 `create-express-gateway-service` 에 `--task-role-arn` 을 포함해 재생성 |
 | `extract_via_gateway`/`invoke_supervisor` 가 빈 URL·ARN 으로 실패 | `GATEWAY_URL`·`RUNTIME_ARN` 환경변수 미전달 | Step 5 의 `create-express-gateway-service` 의 `primaryContainer.environment` 에 세 값이 들어갔는지 `describe-express-gateway-service` 로 확인 |
 | "분석을 요청합니다" 이후 응답이 없음(스피너만 지속) | Step 5 재배포용 `update-express-gateway-service` 에서 `--primary-container` 에 `environment` 를 빼고 호출해 `DATA_BUCKET`·`GATEWAY_URL`·`RUNTIME_ARN` 이 통째로 사라짐 | `describe-express-gateway-service` 의 `activeConfigurations[0].primaryContainer.environment` 로 세 값이 비어 있는지 확인. 비어 있으면 Step 5 트러블슈팅의 재배포 명령(`environment` 포함)으로 다시 갱신 |
+| `RUNTIME_ARN` 조회가 빈 문자열 | `agentRuntimeName` 이 `BcaWorkshop` 과 정확히 일치하지 않음(실제로는 `BcaWorkshop_BcaWorkshop-<해시>`) | `aws bedrock-agentcore-control list-agent-runtimes` 로 실제 이름 확인 후 `contains(agentRuntimeName, 'BcaWorkshop')` 조건으로 조회. 컨테이너 환경변수에 빈 값이 들어간 채로 서비스가 갱신됐다면 값을 채워 재배포 필요 |
 | 업로드 후 `KeyError`/`JSONDecodeError` | Gateway 응답 형식(JSON/SSE) 파싱 실패 | Lab 1 의 `verify_gateway_mcp.py` 로 같은 Gateway 를 호출해 응답 형태를 먼저 확인 |
 | create 가 `Role is not valid` | 역할 전파 지연 또는 ARN 문자열 손상 | 1분 후 재시도. ARN 이 `:role/` 온전한지 확인(셸 변수 조립 시 깨질 수 있음) |
 | 배포 후 로그인 실패 | 콜백이 로컬 URL | Step 6 의 스택 파라미터 갱신 실행 |
