@@ -1,0 +1,309 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  Body Composition Analysis Agentic AI Workshop — Extraction tool + AgentCore Gateway (optional stack)
+
+  This stack uses a Gateway Lambda target. With this approach the Lambda does not need to know the MCP protocol,
+  because the Gateway handles MCP on its behalf. No container, ECR, CodeBuild, or ARM64 MCP
+  server is needed at all.
+
+  This stack is optional. If you do not deploy it, Lab 1 still runs through the extraction path inside the Runtime.
+  (Lab 1 tries the Gateway first and falls back to in-process extraction if that fails)
+
+  Prerequisite: the 01-core.yaml stack must already be deployed.
+
+  Deploy:
+    aws cloudformation deploy \
+      --template-file infra/02-gateway.yaml \
+      --stack-name bca-workshop-gateway \
+      --parameter-overrides CoreStackName=bca-workshop-core \
+      --capabilities CAPABILITY_NAMED_IAM \
+      --region us-west-2
+
+Metadata:
+  # The schemas bundled with cfn-lint 1.55 do not include AgentCore resources yet.
+  # No aws-bedrockagentcore-* schema exists in any of the 46 Region folders,
+  # so the two rules below fire as false positives.
+  #
+  #   E3006  Resource type 'AWS::BedrockAgentCore::Gateway' does not exist
+  #   W3037  'bedrock-agentcore' is not a known IAM action prefix
+  #
+  # The resource types and properties follow the AWS CloudFormation template reference.
+  #   https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/AWS_BedrockAgentCore.html
+  #
+  # Caution: for this reason the linter cannot validate the Gateway / GatewayTarget blocks.
+  #       A property error may only show up during stack creation on the first deployment.
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E3006
+        - W3037
+
+# ──────────────────────────────────────────────
+Parameters:
+
+  ProjectName:
+    Type: String
+    Default: bca-workshop
+    AllowedPattern: "^[a-z][a-z0-9-]{2,20}$"
+    Description: Prefix for resource names (keep it the same as in 01-core.yaml)
+
+  CoreStackName:
+    Type: String
+    Default: bca-workshop-core
+    Description: >
+      Name of the stack deployed with 01-core.yaml. The S3 bucket and Cognito values are imported from it.
+
+# ──────────────────────────────────────────────
+Resources:
+
+  # ── Extractor Lambda ─────────────────────────────
+  # Participants write the code in the lab and replace it. Here only the minimum deployable code is included,
+  # and the IAM / Gateway / tool schema wiring is already complete.
+  #
+  # Division of roles:
+  #   This Lambda     : parses the text layer with pdfplumber (pure Python, no native dependencies)
+  #   Runtime agent   : falls back to Claude vision when parsing fails (handles scanned copies)
+  # For this reason the Lambda gets no Bedrock permissions.
+  ExtractorFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-extractor-lambda-role"
+      # IAM Description accepts only ASCII/Latin-1 characters (a non-Latin-1 character makes the deployment fail).
+      Description: Body composition sheet extractor Lambda execution role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: logs
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${ProjectName}-extractor:*"
+        - PolicyName: read-measurements
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Read-only access to result sheets. No write permission is granted.
+              - Effect: Allow
+                Action: s3:GetObject
+                Resource:
+                  Fn::Sub:
+                    - "arn:${AWS::Partition}:s3:::${Bucket}/*"
+                    - Bucket:
+                        Fn::ImportValue: !Sub "${CoreStackName}-DataBucketName"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  ExtractorLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ProjectName}-extractor"
+      RetentionInDays: 7
+
+  ExtractorFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: ExtractorLogGroup
+    Properties:
+      FunctionName: !Sub "${ProjectName}-extractor"
+      Description: Body composition sheet extractor (replaced by participants in Lab 1)
+      Runtime: python3.13
+      Architectures: [arm64]
+      Handler: index.handler
+      Role: !GetAtt ExtractorFunctionRole.Arn
+      Timeout: 60
+      MemorySize: 1024
+      Environment:
+        Variables:
+          DATA_BUCKET:
+            Fn::ImportValue: !Sub "${CoreStackName}-DataBucketName"
+      Code:
+        ZipFile: |
+          """
+          Placeholder handler. Replace it with the real extraction code in Lab 1.
+
+          The Gateway passes MCP tool calls to this function as the event.
+          The called tool name arrives in the Lambda context's client_context,
+          so branch on it when there are several tools.
+          """
+          import json
+
+
+          def handler(event, context):
+              tool_name = None
+              cc = getattr(context, "client_context", None)
+              if cc is not None and getattr(cc, "custom", None):
+                  tool_name = cc.custom.get("bedrockAgentCoreToolName")
+
+              return {
+                  "status": "NOT_IMPLEMENTED",
+                  "message": (
+                      "Placeholder. Replace it with the pdfplumber extraction code in Lab 1."
+                  ),
+                  "received_tool": tool_name,
+                  "received_event": event,
+              }
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ── Gateway execution role ────────────────────────
+  # The Gateway uses this role when it invokes the Lambda.
+  # It is used when the target sets CredentialProviderType: GATEWAY_IAM_ROLE.
+  GatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-gateway-role"
+      Description: AgentCore Gateway execution role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: invoke-extractor
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt ExtractorFunction.Arn
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ── AgentCore Gateway ───────────────────────
+  # Inbound authentication is verified with a Cognito JWT. The Gateway validates the
+  # ID token that Streamlit received from st.login() when it is passed through unchanged.
+  Gateway:
+    Type: AWS::BedrockAgentCore::Gateway
+    Properties:
+      Name: !Sub "${ProjectName}-tools"
+      Description: Body composition sheet tool gateway
+      RoleArn: !GetAtt GatewayRole.Arn
+      ProtocolType: MCP
+      AuthorizerType: CUSTOM_JWT
+      AuthorizerConfiguration:
+        CustomJWTAuthorizer:
+          DiscoveryUrl:
+            Fn::Sub:
+              - "https://cognito-idp.${AWS::Region}.amazonaws.com/${PoolId}/.well-known/openid-configuration"
+              - PoolId:
+                  Fn::ImportValue: !Sub "${CoreStackName}-UserPoolId"
+          AllowedClients:
+            - Fn::ImportValue: !Sub "${CoreStackName}-UserPoolClientId"
+      Tags:
+        Project: !Ref ProjectName
+
+  # ── Gateway target — exposes the Lambda as an MCP tool ──
+  # This is the core of the stack. The Lambda does not implement MCP.
+  # The ToolSchema below is the tool definition the agent sees, and the Gateway
+  # handles MCP tools/list and tools/call on its behalf and invokes the Lambda.
+  ExtractorTarget:
+    Type: AWS::BedrockAgentCore::GatewayTarget
+    Properties:
+      GatewayIdentifier: !Ref Gateway
+      Name: bodyCompositionExtractor
+      Description: Extracts measurements from a body composition sheet PDF
+      CredentialProviderConfigurations:
+        - CredentialProviderType: GATEWAY_IAM_ROLE
+      TargetConfiguration:
+        Mcp:
+          Lambda:
+            LambdaArn: !GetAtt ExtractorFunction.Arn
+            ToolSchema:
+              InlinePayload:
+                - Name: extract_body_composition
+                  Description: >-
+                    Extracts measurements from a body composition analysis sheet PDF stored in S3
+                    and returns them as normalized JSON. A scanned PDF without a text layer
+                    fails extraction and returns status=NO_TEXT_LAYER,
+                    so the caller must fall back to a vision model.
+                  InputSchema:
+                    Type: object
+                    Properties:
+                      s3_key:
+                        Type: string
+                        Description: >-
+                          Object key of the result sheet in the bucket.
+                          Example: measurements/user-a-session-03.pdf
+                      bucket:
+                        Type: string
+                        Description: >-
+                          S3 bucket that holds the result sheet. If omitted, the DATA_BUCKET environment variable is used.
+                    Required:
+                      - s3_key
+                  OutputSchema:
+                    Type: object
+                    Description: Normalized body composition measurements, or an extraction failure status
+                    Properties:
+                      status:
+                        Type: string
+                        Description: OK, NO_TEXT_LAYER, or VALIDATION_FAILED
+                      document_id:
+                        Type: string
+                      measurement:
+                        Type: object
+                        Description: >-
+                          Measurements from the four sections: Body Composition Analysis / Muscle-Fat Analysis / Obesity Analysis /
+                          Segmental Lean Analysis
+                      validation_errors:
+                        Type: array
+                        Description: List of items that failed arithmetic validation
+                        Items:
+                          Type: string
+
+# ──────────────────────────────────────────────
+Outputs:
+
+  GatewayUrl:
+    Description: MCP endpoint. The agent's MCP client connects to this URL.
+    Value: !GetAtt Gateway.GatewayUrl
+    Export:
+      Name: !Sub "${AWS::StackName}-GatewayUrl"
+
+  GatewayIdentifier:
+    Description: Gateway identifier
+    Value: !GetAtt Gateway.GatewayIdentifier
+
+  GatewayStatus:
+    Description: Gateway status (must be READY before calls work)
+    Value: !GetAtt Gateway.Status
+
+  ExtractorFunctionName:
+    Description: Extractor Lambda function name
+    Value: !Ref ExtractorFunction
+    Export:
+      Name: !Sub "${AWS::StackName}-ExtractorFunctionName"
+
+  UpdateFunctionCodeCommand:
+    Description: >
+      Command that deploys the extraction code written in Lab 1.
+      Run it after building the zip with pdfplumber.
+    Value: !Sub >-
+      aws lambda update-function-code
+      --function-name ${ExtractorFunction}
+      --zip-file fileb://extractor.zip
+      --region ${AWS::Region}
+
+  BuildZipCommand:
+    Description: Build the extractor deployment package (install pdfplumber with arm64 wheels)
+    Value: >-
+      pip install pdfplumber -t build/ --platform manylinux2014_aarch64
+      --only-binary=:all: --python-version 3.13 &&
+      cp index.py build/ && cd build && zip -qr ../extractor.zip . && cd ..

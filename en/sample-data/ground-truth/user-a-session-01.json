@@ -1,0 +1,87 @@
+{
+  "document_id": "user-a-session-01",
+  "synthetic": true,
+  "case_label": "Obese male in his 40s · Session 1 (baseline)",
+  "source_format": "scanned_image",
+  "source_note": "A scan of a past sheet that was kept on paper. It has no text layer, so structural parsing fails and it must be handled by the vision-model fallback path.",
+  "subject": {
+    "subject_id": "user-a",
+    "name": "Dohyun Kim",
+    "age": 44,
+    "sex": "M",
+    "height_cm": 174.5
+  },
+  "measurement": {
+    "session_seq": 1,
+    "measured_at": "2026-02-14T08:41:00+09:00",
+    "device_model": "BodyScan Pro 970",
+    "method": "8-point tactile electrodes / multi-frequency BIA"
+  },
+  "reference": {
+    "standard_weight_kg": 67.0,
+    "standard_weight_basis": "BMI 22 × height(m)²",
+    "standard_smm_kg": 31.8,
+    "standard_bfm_kg": 10.1,
+    "pbf_standard_low": 10.0,
+    "pbf_standard_high": 20.0
+  },
+  "body_composition_analysis": {
+    "total_body_water_kg": { "value": 46.6, "std_low": 38.2, "std_high": 46.7, "flag": "NORMAL", "label_ko": "Total Body Water" },
+    "protein_kg":          { "value": 12.0, "std_low": 10.2, "std_high": 12.5, "flag": "NORMAL", "label_ko": "Protein" },
+    "minerals_kg":         { "value": 4.0,  "std_low": 3.53, "std_high": 4.31, "flag": "NORMAL", "label_ko": "Minerals" },
+    "body_fat_mass_kg":    { "value": 34.0, "std_low": 6.7,  "std_high": 13.4, "flag": "HIGH",   "label_ko": "Body Fat Mass" },
+    "intracellular_water_kg": 28.7,
+    "extracellular_water_kg": 17.9,
+    "ecw_tbw_ratio": { "value": 0.384, "std_low": 0.360, "std_high": 0.390, "flag": "NORMAL" },
+    "fat_free_mass_kg": 62.6,
+    "weight_kg": 96.6
+  },
+  "muscle_fat_analysis": {
+    "weight_kg":               { "value": 96.6, "std_low": 60.3, "std_high": 73.7, "percent_of_standard": 144.2, "flag": "HIGH" },
+    "skeletal_muscle_mass_kg": { "value": 34.9, "std_low": 28.6, "std_high": 35.0, "percent_of_standard": 109.7, "flag": "NORMAL" },
+    "body_fat_mass_kg":        { "value": 34.0, "std_low": 6.7,  "std_high": 13.4, "percent_of_standard": 336.6, "flag": "HIGH" },
+    "body_type": "C",
+    "body_type_label_ko": "C-shape",
+    "body_type_description_ko": "Skeletal muscle mass is relatively low compared with weight and body fat mass. Body fat reduction is needed."
+  },
+  "obesity_analysis": {
+    "bmi":         { "value": 31.7, "unit": "kg/m²", "std_low": 18.5, "std_high": 24.9, "flag": "HIGH", "label_ko": "BMI" },
+    "pbf_percent": { "value": 35.2, "unit": "%",     "std_low": 10.0, "std_high": 20.0, "flag": "HIGH", "label_ko": "Percent Body Fat" },
+    "bmi_class_ko": "Obesity Stage 2",
+    "bmi_class_basis": "Korean Society for the Study of Obesity criteria (25.0~29.9 Obesity Stage 1, 30.0~34.9 Obesity Stage 2)"
+  },
+  "segmental_lean_analysis": {
+    "right_arm": { "mass_kg": 3.76,  "std_kg": 3.56,  "percent_of_standard": 105.6, "flag": "ABOVE",  "label_ko": "Right Arm" },
+    "left_arm":  { "mass_kg": 3.68,  "std_kg": 3.56,  "percent_of_standard": 103.4, "flag": "NORMAL", "label_ko": "Left Arm" },
+    "trunk":     { "mass_kg": 28.62, "std_kg": 25.58, "percent_of_standard": 111.9, "flag": "ABOVE",  "label_ko": "Trunk" },
+    "right_leg": { "mass_kg": 10.08, "std_kg": 10.24, "percent_of_standard": 98.4,  "flag": "NORMAL", "label_ko": "Right Leg" },
+    "left_leg":  { "mass_kg": 9.90,  "std_kg": 10.24, "percent_of_standard": 96.7,  "flag": "NORMAL", "label_ko": "Left Leg" },
+    "balance": {
+      "upper_limb_asymmetry_percent": 2.2,
+      "lower_limb_asymmetry_percent": 1.8,
+      "left_right_balance_ko": "Good",
+      "upper_lower_balance_ko": "Imbalanced — trunk muscle is above standard, but leg muscle is at the low end of standard"
+    }
+  },
+  "additional_metrics": {
+    "waist_hip_ratio":    { "value": 1.02, "std_low": 0.80, "std_high": 0.90, "flag": "HIGH", "label_ko": "Waist-Hip Ratio" },
+    "visceral_fat_level": { "value": 18,   "std_low": 1,    "std_high": 9,    "flag": "HIGH", "label_ko": "Visceral Fat Level" },
+    "basal_metabolic_rate_kcal": { "value": 1722, "formula": "21.6 × Fat-Free Mass(kg) + 370", "label_ko": "Basal Metabolic Rate" },
+    "body_composition_score": { "value": 62, "max": 100, "standard": 80, "label_ko": "Body Composition Score" }
+  },
+  "control_guide": {
+    "target_weight_kg": 73.6,
+    "target_weight_basis": "Maintain fat-free mass + target body fat 15%",
+    "weight_control_kg": -23.0,
+    "muscle_control_kg": 0.0,
+    "fat_control_kg": -23.0
+  },
+  "expected_analysis_findings": [
+    "BMI 31.7 and percent body fat 35.2%, both far above standard — Obesity Stage 2",
+    "Body type C-shape — skeletal muscle mass is at the upper end of the standard range, but body fat mass is 336.6% of standard",
+    "Visceral fat level 18 and waist-hip ratio 1.02 indicate heavy abdominal fat accumulation",
+    "In segmental lean mass, trunk is 111.9% versus a leg average of 97.6% — upper-lower imbalance",
+    "The goal is to lose 23.0 kg of body fat without losing muscle",
+    "Baseline document for the trend analysis — the starting point for delta calculations against later sessions"
+  ]
+}

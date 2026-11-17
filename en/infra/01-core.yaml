@@ -1,0 +1,384 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: >
+  Body Composition Analysis Agentic AI Workshop — Core infrastructure (S3 / Cognito / IAM)
+
+  Participants deploy this stack themselves. AgentCore resources (Memory, Guardrail, Runtime)
+  are created by hand in the labs, so this template does not include them.
+
+  Deploy:
+    aws cloudformation deploy \
+      --template-file infra/01-core.yaml \
+      --stack-name bca-workshop-core \
+      --capabilities CAPABILITY_NAMED_IAM \
+      --region us-west-2
+
+  Empty the bucket before deleting the stack:
+    aws s3 rm s3://<DataBucketName> --recursive
+
+Metadata:
+  # cfn-lint 1.x does not yet know the IAM action prefix of the new bedrock-agentcore service.
+  # W3037 is a false positive, so it is ignored. The action names follow the official AgentCore documentation.
+  cfn-lint:
+    config:
+      ignore_checks:
+        - W3037
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: { default: "Basic settings" }
+        Parameters: [ProjectName]
+      - Label: { default: "Frontend callback URLs" }
+        Parameters: [LocalCallbackUrl, HostedCallbackUrl]
+    ParameterLabels:
+      ProjectName: { default: "Project prefix" }
+      LocalCallbackUrl: { default: "Callback URL for local development" }
+      HostedCallbackUrl: { default: "Callback URL after deployment (update later)" }
+
+# ──────────────────────────────────────────────
+Parameters:
+
+  ProjectName:
+    Type: String
+    Default: bca-workshop
+    AllowedPattern: "^[a-z][a-z0-9-]{2,20}$"
+    Description: >
+      Prefix for resource names. Use only lowercase letters, digits, and hyphens.
+
+  LocalCallbackUrl:
+    Type: String
+    Default: http://localhost:8501/oauth2callback
+    Description: >
+      OIDC callback for running Streamlit locally. The path must end with /oauth2callback
+      (a Streamlit st.login() requirement).
+
+  HostedCallbackUrl:
+    Type: String
+    Default: https://example.ecs.us-west-2.on.aws/oauth2callback
+    Description: >
+      Callback URL after the ECS Express Mode deployment. The real domain is not known before
+      deployment, so in Lab 6 you replace this value with the real URL
+      (format: https://<service-name>.ecs.us-west-2.on.aws) and update the stack.
+
+# ──────────────────────────────────────────────
+Resources:
+
+  # ── Storage for result sheet PDFs and outputs ──────────────
+  DataBucket:
+    Type: AWS::S3::Bucket
+    # If objects remain after the workshop, stack deletion fails.
+    # 99_cleanup.md tells you to empty the bucket first.
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "${ProjectName}-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          # Workshop data has no reason to stay long. Objects expire after 7 days even if you forget to clean up.
+          - Id: expire-workshop-objects
+            Status: Enabled
+            ExpirationInDays: 7
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 1
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # Deny non-HTTPS requests (the bucket holds personal body composition data)
+  DataBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DataBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !Sub "${DataBucket.Arn}"
+              - !Sub "${DataBucket.Arn}/*"
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+
+  # ── Cognito — user authentication ────────────────────
+  # In this app each person uploads their own result sheet, so login is required.
+  # Why the name attribute is required: it is compared with the name extracted from the sheet
+  # to filter out uploads of other people's sheets (it is for verification, not for display).
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub "${ProjectName}-users"
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: false
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+        - Name: name
+          AttributeDataType: String
+          Required: true
+          Mutable: true
+      AdminCreateUserConfig:
+        # Participants can sign up on their own. This is acceptable because it is a workshop account.
+        AllowAdminCreateUserOnly: false
+      UserPoolTags:
+        Project: !Ref ProjectName
+
+  # st.login() uses the authorization code flow and a client secret.
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub "${ProjectName}-streamlit"
+      UserPoolId: !Ref UserPool
+      GenerateSecret: true          # st.login() needs a client_secret
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      SupportedIdentityProviders: [COGNITO]
+      CallbackURLs:
+        - !Ref LocalCallbackUrl
+        - !Ref HostedCallbackUrl
+      LogoutURLs:
+        - !Ref LocalCallbackUrl
+        - !Ref HostedCallbackUrl
+      ExplicitAuthFlows:
+        - ALLOW_USER_SRP_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        # Labs 1-5 must call the Gateway without a frontend.
+        # If only SRP is allowed, you cannot get a token from the CLI (it needs an SRP implementation) and the lab is blocked.
+        # This flow is enabled so that admin-initiate-auth returns an ID token in one line.
+        # Do not enable it in production, because it allows password authentication with admin privileges.
+        - ALLOW_ADMIN_USER_PASSWORD_AUTH
+      PreventUserExistenceErrors: ENABLED
+      # The ID token is passed to the Runtime inbound authentication, so the validity period is generous.
+      IdTokenValidity: 8
+      AccessTokenValidity: 8
+      RefreshTokenValidity: 1
+      TokenValidityUnits:
+        IdToken: hours
+        AccessToken: hours
+        RefreshToken: days
+
+  # The authorization_endpoint in the OIDC discovery document points to this domain.
+  # Without the domain, st.login() does not work.
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      UserPoolId: !Ref UserPool
+      Domain: !Sub "${ProjectName}-${AWS::AccountId}"
+
+  # ── IAM — AgentCore Runtime execution role ─────────
+  # Built with least privilege. AdministratorAccess is not used.
+  # Participants create Memory and Guardrail in the labs, so their ARNs
+  # are not known when the stack is created. The policy uses wildcards scoped to the account and Region.
+  AgentRuntimeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-agent-runtime-role"
+      # IAM Description accepts only ASCII/Latin-1 characters (a non-Latin-1 character makes the deployment fail).
+      # Explanations are kept in the comments below and in infra/README.md.
+      Description: AgentCore Runtime execution role for the body composition workshop
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+              ArnLike:
+                aws:SourceArn: !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:*"
+      Policies:
+        - PolicyName: bedrock-model-invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # A global inference profile routes to several Regions,
+              # so the Region of the foundation-model resource cannot be fixed.
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*"
+                  - !Sub "arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*"
+              # Apply and read the Guardrail that participants create in Lab 4
+              - Effect: Allow
+                Action:
+                  - bedrock:ApplyGuardrail
+                  - bedrock:ListGuardrails
+                  - bedrock:GetGuardrail
+                Resource: !Sub "arn:${AWS::Partition}:bedrock:${AWS::Region}:${AWS::AccountId}:guardrail/*"
+
+        - PolicyName: agentcore-memory
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # For the Lab 3 trend analysis. Grants only the actions needed to store and read the measurement history.
+              - Effect: Allow
+                Action:
+                  - bedrock-agentcore:CreateEvent
+                  - bedrock-agentcore:ListEvents
+                  - bedrock-agentcore:GetEvent
+                  - bedrock-agentcore:RetrieveMemoryRecords
+                  - bedrock-agentcore:GetMemoryRecord
+                  - bedrock-agentcore:ListMemoryRecords
+                Resource: !Sub "arn:${AWS::Partition}:bedrock-agentcore:${AWS::Region}:${AWS::AccountId}:memory/*"
+
+        - PolicyName: s3-data-access
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub "${DataBucket.Arn}/*"
+              - Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt DataBucket.Arn
+
+        - PolicyName: observability
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # Lab 5 Observability. ADOT auto-instrumentation sends data to X-Ray and CloudWatch.
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogStreams
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/bedrock-agentcore/*"
+              - Effect: Allow
+                Action:
+                  - xray:PutTraceSegments
+                  - xray:PutTelemetryRecords
+                  - xray:GetSamplingRules
+                  - xray:GetSamplingTargets
+                Resource: "*"     # X-Ray write actions do not support resource-level permissions
+              - Effect: Allow
+                Action: cloudwatch:PutMetricData
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    cloudwatch:namespace: bedrock-agentcore
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+  # ── IAM — AgentCore Memory execution role ──────────
+  # Memory uses this role when it calls a Bedrock model to extract and consolidate long-term memory.
+  # In Lab 3 you pass this role ARN when you call create_memory.
+  MemoryExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-memory-execution-role"
+      Description: AgentCore Memory extraction and consolidation execution role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock-agentcore.amazonaws.com
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+      Policies:
+        - PolicyName: bedrock-model-invoke
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeModel
+                  - bedrock:InvokeModelWithResponseStream
+                Resource:
+                  - !Sub "arn:${AWS::Partition}:bedrock:*::foundation-model/anthropic.claude-*"
+                  - !Sub "arn:${AWS::Partition}:bedrock:*:${AWS::AccountId}:inference-profile/*"
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectName
+
+# ──────────────────────────────────────────────
+Outputs:
+
+  DataBucketName:
+    Description: Bucket for result sheet PDFs and outputs
+    Value: !Ref DataBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-DataBucketName"
+
+  UploadSamplesCommand:
+    Description: Command that uploads the 5 sample result sheets to the bucket (run from the en/ directory)
+    Value: !Sub "aws s3 cp sample-data/pdf/ s3://${DataBucket}/measurements/ --recursive --region ${AWS::Region}"
+
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+
+  UserPoolClientId:
+    Description: App Client ID for the Streamlit app
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+
+  GetClientSecretCommand:
+    Description: >
+      The client secret is not exposed as a CloudFormation output.
+      Retrieve it with the command below and put it in the Streamlit secrets.toml.
+    Value: !Sub >-
+      aws cognito-idp describe-user-pool-client
+      --user-pool-id ${UserPool}
+      --client-id ${UserPoolClient}
+      --region ${AWS::Region}
+      --query 'UserPoolClient.ClientSecret' --output text
+
+  OIDCDiscoveryUrl:
+    Description: Value for server_metadata_url of Streamlit st.login()
+    Value: !Sub "https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}/.well-known/openid-configuration"
+
+  CognitoHostedUiDomain:
+    Description: Cognito hosted UI domain (the base of the OIDC authorization_endpoint)
+    Value: !Sub "https://${UserPoolDomain}.auth.${AWS::Region}.amazoncognito.com"
+
+  AgentRuntimeRoleArn:
+    Description: Use as roleArn when you create the AgentCore Runtime
+    Value: !GetAtt AgentRuntimeRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-AgentRuntimeRoleArn"
+
+  MemoryExecutionRoleArn:
+    Description: Use as memoryExecutionRoleArn when you create the AgentCore Memory
+    Value: !GetAtt MemoryExecutionRole.Arn
+    Export:
+      Name: !Sub "${AWS::StackName}-MemoryExecutionRoleArn"
+
+  Region:
+    Description: Lab Region (all labs use this one Region)
+    Value: !Ref AWS::Region

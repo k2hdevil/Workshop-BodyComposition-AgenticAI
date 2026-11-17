@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Body Composition Analysis Report — user-a-session-01</title>
+<style>
+@page { size: A4 portrait; margin: 8mm 9mm; }
+* { box-sizing: border-box; }
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, 'Segoe UI', sans-serif;
+  color: #1a1a1a; margin: 0; font-size: 8.6pt; line-height: 1.35;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+.head { border-bottom: 2.5px solid #14417a; padding-bottom: 4px; margin-bottom: 6px;
+        display: flex; align-items: flex-end; justify-content: space-between; }
+.head .t1 { font-size: 14pt; font-weight: 700; color: #14417a; letter-spacing: -0.4px; }
+.head .t2 { font-size: 7.8pt; color: #5a6b80; margin-top: 1px; }
+.synth { border: 1px solid #c0392b; color: #c0392b; font-size: 7pt; font-weight: 700;
+         padding: 3px 7px; border-radius: 3px; white-space: nowrap; text-align: center; }
+
+table.subj { width: 100%; border-collapse: collapse; margin-bottom: 6px; font-size: 8.2pt; }
+table.subj th { background: #eef2f7; color: #14417a; font-weight: 700; text-align: left;
+                padding: 2.5px 7px; border: 1px solid #c9d4e2; width: 9%; white-space: nowrap; }
+table.subj td { padding: 2.5px 7px; border: 1px solid #c9d4e2; width: 16%; }
+
+section { margin-bottom: 6px; break-inside: avoid; }
+h2 { font-size: 9.8pt; font-weight: 700; color: #fff; background: #14417a;
+     margin: 0 0 4px 0; padding: 2.5px 9px; border-radius: 2px; }
+h2 .en { font-size: 7.6pt; font-weight: 400; color: #b9cbe3; margin-left: 6px; }
+
+table.data { width: 100%; border-collapse: collapse; font-size: 8.2pt; }
+table.data thead th { background: #e9eef5; color: #24405f; font-weight: 700;
+                      padding: 2.5px 5px; border: 1px solid #c9d4e2; text-align: center; }
+table.data td { padding: 2px 5px; border: 1px solid #d6dee8; text-align: center; }
+table.data td.name { text-align: left; font-weight: 600; }
+table.data td.val  { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+table.data td.rng  { text-align: center; color: #4a5a6e; font-variant-numeric: tabular-nums; }
+table.data tr.sum td { background: #f6f8fb; font-weight: 700; }
+
+.f-low    { color: #1257a8; font-weight: 700; }
+.f-normal { color: #1a7f42; font-weight: 700; }
+.f-high   { color: #c0392b; font-weight: 700; }
+
+.track { position: relative; height: 10px; background: #f0f3f7;
+         border: 1px solid #d6dee8; border-radius: 1px; }
+.band  { position: absolute; top: 0; bottom: 0; background: #dbe7d8; }
+.fill  { position: absolute; top: 1px; bottom: 1px; left: 0; border-radius: 1px; }
+.fill.f-low    { background: #3b82c4; }
+.fill.f-normal { background: #35a35f; }
+.fill.f-high   { background: #d9534f; }
+.mark { position: absolute; top: -1px; bottom: -1px; width: 1px; background: #8f9fb2; }
+
+.mfa { position: relative; border: 1px solid #c9d4e2; }
+.mfa .scale { display: flex; background: #e9eef5; border-bottom: 1px solid #c9d4e2;
+              font-size: 6.4pt; color: #46586e; }
+.mfa .scale div { flex: 1; text-align: right; padding: 2px 2px 1px 0;
+                  border-left: 1px solid #d6dee8; }
+/* overflow:hidden is a safeguard that keeps the body-type connector line (SVG) from leaking outside the graph */
+.mfa .rows { position: relative; overflow: hidden; }
+.mfa .row { display: flex; align-items: center; height: 25px;
+            border-bottom: 1px solid #e6ebf1; }
+.mfa .row:last-child { border-bottom: none; }
+.mfa .lbl { width: 140px; flex: 0 0 140px; padding: 0 7px; font-size: 8pt; font-weight: 600;
+            border-right: 1px solid #c9d4e2; }
+.mfa .lbl .u { font-weight: 400; color: #6b7b8f; font-size: 7pt; }
+.mfa .barwrap { position: relative; flex: 1; height: 100%; }
+.mfa .bar { position: absolute; top: 5px; height: 14px; left: 0; }
+.mfa .bar.f-low    { background: #3b82c4; }
+.mfa .bar.f-normal { background: #35a35f; }
+.mfa .bar.f-high   { background: #d9534f; }
+.mfa .num { position: absolute; top: 6px; font-size: 7.8pt; font-weight: 700;
+            color: #24405f; white-space: nowrap; padding-left: 4px;
+            font-variant-numeric: tabular-nums; }
+/* When a long bar pushes the label out, draw it inside the bar in white */
+.mfa .num.inside { padding-left: 0; padding-right: 6px; color: #fff; }
+.mfa .g100 { position: absolute; top: 0; bottom: 0; width: 1.5px; background: #14417a; }
+.mfa .gtick { position: absolute; top: 0; bottom: 0; width: 1px; background: #eaeef3; }
+.mfa .stdband { position: absolute; top: 0; bottom: 0; background: rgba(53,163,95,0.08); }
+/* If left and right are both set, the width of the SVG (a replaced element) is fixed at its
+   intrinsic 300px and no longer matches the bar area. Set width explicitly. */
+.mfa svg.link { position: absolute; top: 0; left: 140px; width: calc(100% - 140px); }
+/* Tick lines and the standard-range band must be positioned against the bar area, excluding the label column.
+   A % applied directly to .rows would include the label column width and misalign ticks and bars. */
+.mfa .guides { position: absolute; top: 0; bottom: 0; left: 140px; right: 0; }
+
+.bodytype { margin-top: 4px; border: 1px solid #c9d4e2; background: #f6f8fb; padding: 4px 9px; }
+.bodytype .h { font-size: 9.4pt; font-weight: 700; color: #14417a; }
+.bodytype .h b { font-size: 11.5pt; color: #c0392b; margin: 0 3px; }
+.bodytype .d { font-size: 8pt; color: #33475e; margin-top: 2px; }
+.bodytype .caution { font-size: 8pt; color: #a8321f; margin-top: 3px;
+                     border-top: 1px dashed #d8c2be; padding-top: 3px; }
+
+.cols { display: flex; gap: 8px; }
+.cols > * { flex: 1; }
+
+table.kv { width: 100%; border-collapse: collapse; font-size: 8.2pt; }
+table.kv th { background: #eef2f7; color: #24405f; text-align: left; font-weight: 600;
+              padding: 2px 7px; border: 1px solid #c9d4e2; white-space: nowrap; }
+table.kv td { padding: 2px 7px; border: 1px solid #d6dee8; text-align: right;
+              font-weight: 700; font-variant-numeric: tabular-nums; }
+table.kv td .sub { font-weight: 400; color: #6b7b8f; font-size: 7.2pt; }
+
+.note { margin-top: 3px; font-size: 7.8pt; color: #33475e;
+        border: 1px solid #d6dee8; background: #f9fafc; padding: 4px 8px; }
+.note b { color: #14417a; }
+
+footer { margin-top: 6px; border-top: 1px solid #c9d4e2; padding-top: 3px;
+         font-size: 6.8pt; color: #6b7b8f; line-height: 1.5; }
+footer .warn { color: #a8321f; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="head">
+  <div>
+    <div class="t1">Body Composition Analysis Report</div>
+    <div class="t2">Document No. USER-A-SESSION-01 &nbsp;·&nbsp; Session 1</div>
+  </div>
+  <div class="synth">SYNTHETIC DATA · FOR EDUCATION/TESTING ONLY<br>NOT A REAL MEASUREMENT</div>
+</div>
+<table class="subj">
+  <tr>
+    <th>Name</th><td>Dohyun Kim</td>
+    <th>Age</th><td>44 yrs</td>
+    <th>Sex</th><td>Male</td>
+    <th>Height</th><td>174.5 cm</td>
+  </tr>
+  <tr>
+    <th>Date/Time</th><td>2026-02-14 08:41</td>
+    <th>Device</th><td>BodyScan Pro 970</td>
+    <th>Method</th><td colspan="3">8-point tactile electrodes / multi-frequency BIA</td>
+  </tr>
+</table>
+
+
+<section>
+  <h2>1. Body Composition Analysis</h2>
+  <table class="data">
+    <thead><tr><th style="width:17%">Item</th><th style="width:14%">Measured (kg)</th>
+      <th style="width:19%">Standard Range (kg)</th><th style="width:9%">Status</th><th>Graph</th></tr></thead>
+    <tbody>
+      <tr><td class="name">Total Body Water</td><td class="val">46.6</td><td class="rng">38.2 ~ 46.7</td><td class="f-normal">Normal</td><td><div class="track"><div class="band" style="left:51.12%;width:11.38%"></div><div class="fill f-normal" style="width:62.37%"></div><div class="mark" style="left:51.12%"></div><div class="mark" style="left:62.50%"></div></div></td></tr><tr><td class="name">Protein</td><td class="val">12.0</td><td class="rng">10.2 ~ 12.5</td><td class="f-normal">Normal</td><td><div class="track"><div class="band" style="left:51.00%;width:11.50%"></div><div class="fill f-normal" style="width:60.00%"></div><div class="mark" style="left:51.00%"></div><div class="mark" style="left:62.50%"></div></div></td></tr><tr><td class="name">Minerals</td><td class="val">4.00</td><td class="rng">3.53 ~ 4.31</td><td class="f-normal">Normal</td><td><div class="track"><div class="band" style="left:51.19%;width:11.31%"></div><div class="fill f-normal" style="width:58.00%"></div><div class="mark" style="left:51.19%"></div><div class="mark" style="left:62.50%"></div></div></td></tr><tr><td class="name">Body Fat Mass</td><td class="val">34.0</td><td class="rng">6.7 ~ 13.4</td><td class="f-high">High</td><td><div class="track"><div class="band" style="left:17.59%;width:17.59%"></div><div class="fill f-high" style="width:89.29%"></div><div class="mark" style="left:17.59%"></div><div class="mark" style="left:35.19%"></div></div></td></tr>
+      <tr class="sum"><td class="name">Fat-Free Mass (FFM)</td>
+        <td class="val">62.6</td>
+        <td class="rng" colspan="3" style="text-align:left">Total Body Water + Protein + Minerals
+          = 46.6 + 12.0
+          + 4.0</td></tr>
+      <tr class="sum"><td class="name">Weight</td>
+        <td class="val">96.6</td>
+        <td class="rng" colspan="3" style="text-align:left">Fat-Free Mass + Body Fat Mass
+          = 62.6 + 34.0</td></tr>
+    </tbody>
+  </table>
+  <div class="note">
+    <b>Body Water Detail</b> &nbsp; Intracellular Water 28.7 kg &nbsp;/&nbsp;
+    Extracellular Water 17.9 kg &nbsp;/&nbsp;
+    ECW/TBW Ratio 0.384
+    (Standard 0.360 ~ 0.390,
+     <span class="f-normal">Normal</span>)
+  </div>
+</section>
+
+<section>
+  <h2>2. Muscle-Fat Analysis</h2>
+  <div class="mfa"><div class="scale"><div style="flex:0 0 140px;border-left:none;text-align:left;padding-left:7px">% of Standard</div><div>25</div><div>50</div><div>75</div><div>100</div><div>125</div><div>150</div><div>175</div><div>200</div></div><div class="rows"><div class="guides"><div class="stdband" style="left:45.00%;width:10.00%"></div><div class="gtick" style="left:12.50%"></div><div class="gtick" style="left:25.00%"></div><div class="gtick" style="left:37.50%"></div><div class="g100" style="left:50.00%"></div><div class="gtick" style="left:62.50%"></div><div class="gtick" style="left:75.00%"></div><div class="gtick" style="left:87.50%"></div><div class="gtick" style="left:100.00%"></div></div><div class="row"><div class="lbl">Weight<span class="u"> WT</span></div><div class="barwrap"><div class="bar f-high" style="width:72.10%"></div><div class="num inside" style="right:27.90%">96.6 kg (144.2%)</div></div></div><div class="row"><div class="lbl">Skeletal Muscle<span class="u"> SMM</span></div><div class="barwrap"><div class="bar f-normal" style="width:54.85%"></div><div class="num" style="left:54.85%">34.9 kg (109.7%)</div></div></div><div class="row"><div class="lbl">Body Fat Mass<span class="u"> BFM</span></div><div class="barwrap"><div class="bar f-high" style="width:100.00%"></div><div class="num inside" style="right:0.00%">▶ 34.0 kg (336.6%)</div></div></div><svg class="link" style="height:75px" viewBox="0 0 100 100" preserveAspectRatio="none"><polyline points="72.10,16.67 54.85,50.00 100.00,83.33" fill="none" stroke="#c0392b" stroke-width="0.6" vector-effect="non-scaling-stroke" stroke-dasharray="2.5,1.5"/></svg></div></div>
+  <div class="bodytype">
+    <div class="h">Body Type &nbsp;<b>C-shape</b>
+      <span style="font-size:7.8pt;font-weight:400;color:#6b7b8f">
+      (shape formed by connecting the bar ends · based on standard weight 67.0 kg)</span></div>
+    <div class="d">Skeletal muscle mass is relatively low compared with weight and body fat mass. Body fat reduction is needed.</div>
+    
+  </div>
+</section>
+
+<section>
+  <h2>3. Obesity Analysis</h2>
+  <div class="mfa" style="margin-bottom:5px"><div class="scale"><div style="flex:0 0 140px;border-left:none;text-align:left;padding-left:7px">Unit kg/m²</div><div>5</div><div>10</div><div>15</div><div>20</div><div>25</div><div>30</div><div>35</div><div>40</div></div><div class="rows"><div class="guides"><div class="stdband" style="left:46.25%;width:16.00%"></div><div class="gtick" style="left:12.50%"></div><div class="gtick" style="left:25.00%"></div><div class="gtick" style="left:37.50%"></div><div class="gtick" style="left:50.00%"></div><div class="gtick" style="left:62.50%"></div><div class="gtick" style="left:75.00%"></div><div class="gtick" style="left:87.50%"></div><div class="gtick" style="left:100.00%"></div></div><div class="row" style="height:23px"><div class="lbl">BMI<span class="u"> kg/m²</span></div><div class="barwrap"><div class="bar f-high" style="width:79.25%"></div><div class="num inside" style="right:20.75%">31.7 kg/m² &nbsp;High</div></div></div></div></div>
+  <div class="mfa" style="margin-bottom:5px"><div class="scale"><div style="flex:0 0 140px;border-left:none;text-align:left;padding-left:7px">Unit %</div><div>10</div><div>20</div><div>30</div><div>40</div><div>50</div></div><div class="rows"><div class="guides"><div class="stdband" style="left:20.00%;width:20.00%"></div><div class="gtick" style="left:20.00%"></div><div class="gtick" style="left:40.00%"></div><div class="gtick" style="left:60.00%"></div><div class="gtick" style="left:80.00%"></div><div class="gtick" style="left:100.00%"></div></div><div class="row" style="height:23px"><div class="lbl">Percent Body Fat<span class="u"> %</span></div><div class="barwrap"><div class="bar f-high" style="width:70.40%"></div><div class="num" style="left:70.40%">35.2 %&nbsp; <span class="f-high">High</span></div></div></div></div></div>
+  <div class="note">
+    <b>BMI (Body Mass Index)</b> Apparent obesity index calculated from height and weight only →
+    31.7 kg/m&sup2;, <b>Obesity Stage 2</b>
+    <span style="color:#6b7b8f">(Korean Society for the Study of Obesity criteria (25.0~29.9 Obesity Stage 1, 30.0~34.9 Obesity Stage 2))</span><br>
+    <b>PBF (Percent Body Fat)</b> Actual share of body weight that is fat →
+    35.2 %,
+    male standard 10.0 ~ 20.0 %
+  </div>
+</section>
+
+<section>
+  <h2>4. Segmental Lean Analysis</h2>
+  <table class="data">
+    <thead><tr><th style="width:14%">Segment</th><th style="width:13%">Lean Mass (kg)</th>
+      <th style="width:12%">Standard (kg)</th><th style="width:13%">% of Standard</th>
+      <th style="width:9%">Status</th><th>Graph</th></tr></thead>
+    <tbody><tr><td class="name">Right Arm</td><td class="val">3.76</td><td class="rng">3.56</td><td class="val">105.6</td><td class="f-high">High</td><td><div class="track"><div class="band" style="left:59.38%;width:6.25%"></div><div class="fill f-high" style="width:66.00%"></div><div class="mark" style="left:62.50%"></div></div></td></tr><tr><td class="name">Left Arm</td><td class="val">3.68</td><td class="rng">3.56</td><td class="val">103.4</td><td class="f-normal">Normal</td><td><div class="track"><div class="band" style="left:59.38%;width:6.25%"></div><div class="fill f-normal" style="width:64.62%"></div><div class="mark" style="left:62.50%"></div></div></td></tr><tr><td class="name">Trunk</td><td class="val">28.62</td><td class="rng">25.58</td><td class="val">111.9</td><td class="f-high">High</td><td><div class="track"><div class="band" style="left:59.38%;width:6.25%"></div><div class="fill f-high" style="width:69.94%"></div><div class="mark" style="left:62.50%"></div></div></td></tr><tr><td class="name">Right Leg</td><td class="val">10.08</td><td class="rng">10.24</td><td class="val">98.4</td><td class="f-normal">Normal</td><td><div class="track"><div class="band" style="left:59.38%;width:6.25%"></div><div class="fill f-normal" style="width:61.50%"></div><div class="mark" style="left:62.50%"></div></div></td></tr><tr><td class="name">Left Leg</td><td class="val">9.90</td><td class="rng">10.24</td><td class="val">96.7</td><td class="f-normal">Normal</td><td><div class="track"><div class="band" style="left:59.38%;width:6.25%"></div><div class="fill f-normal" style="width:60.44%"></div><div class="mark" style="left:62.50%"></div></div></td></tr></tbody>
+  </table>
+  <div class="note">
+    <b>Left-Right Balance</b> Upper-limb difference 2.2 % /
+    Lower-limb difference 1.8 % → Good<br>
+    <b>Upper-Lower Balance</b> Imbalanced — trunk muscle is above standard, but leg muscle is at the low end of standard
+  </div>
+</section>
+
+<section class="cols">
+  <div>
+    <h2>Additional Metrics</h2>
+    <table class="kv">
+      <tr><th>Waist-Hip Ratio (WHR)</th><td>1.02
+        <span class="f-high">High</span>
+        <span class="sub">Standard 0.80~0.90</span></td></tr>
+      <tr><th>Visceral Fat Level</th><td>18
+        <span class="f-high">High</span>
+        <span class="sub">Standard 1~9</span></td></tr>
+      <tr><th>Basal Metabolic Rate</th><td>1,722 kcal
+        <span class="sub">21.6 × Fat-Free Mass(kg) + 370</span></td></tr>
+      <tr><th>Body Composition Score</th><td>62 / 100
+        <span class="sub">Standard 80</span></td></tr>
+    </table>
+  </div>
+  <div>
+    <h2>Weight Control Guide</h2>
+    <table class="kv">
+      <tr><th>Target Weight</th><td>73.6 kg
+        <span class="sub">Maintain fat-free mass + target body fat 15%</span></td></tr>
+      <tr><th>Weight Change</th><td>-23.0 kg</td></tr>
+      <tr><th>Muscle Change</th><td>+0.0 kg</td></tr>
+      <tr><th>Fat Change</th><td>-23.0 kg</td></tr>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <span class="warn">This sheet is fictitious synthetic data, not an actual measurement result.</span>
+  It is for education and software testing only and is unrelated to any real person,
+  organization, or device. The name is a pseudonym and the device name is fictitious.<br>
+  Results are for general health reference only, not a medical diagnosis; consult a healthcare professional.
+  &nbsp;·&nbsp; Standard ranges are reference values derived from the standard weight for the height.
+</footer>
+</body>
+</html>

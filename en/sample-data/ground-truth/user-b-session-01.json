@@ -1,0 +1,89 @@
+{
+  "document_id": "user-b-session-01",
+  "synthetic": true,
+  "case_label": "Underweight female in her 30s · Session 1 (different user / D-shape trap case)",
+  "source_format": "digital_export",
+  "source_note": "A different user from user-a. Used to verify Memory isolation and the identity-check logic.",
+  "subject": {
+    "subject_id": "user-b",
+    "name": "Jieun Park",
+    "age": 32,
+    "sex": "F",
+    "height_cm": 163.2
+  },
+  "measurement": {
+    "session_seq": 1,
+    "measured_at": "2026-08-18T14:07:00+09:00",
+    "device_model": "BodyScan Pro 970",
+    "method": "8-point tactile electrodes / multi-frequency BIA"
+  },
+  "reference": {
+    "standard_weight_kg": 55.9,
+    "standard_weight_basis": "BMI 21 × height(m)²",
+    "standard_smm_kg": 22.9,
+    "standard_bfm_kg": 12.9,
+    "pbf_standard_low": 18.0,
+    "pbf_standard_high": 28.0
+  },
+  "body_composition_analysis": {
+    "total_body_water_kg": { "value": 27.7, "std_low": 28.9, "std_high": 35.3, "flag": "LOW", "label_ko": "Total Body Water" },
+    "protein_kg":          { "value": 7.4,  "std_low": 7.7,  "std_high": 9.4,  "flag": "LOW", "label_ko": "Protein" },
+    "minerals_kg":         { "value": 2.4,  "std_low": 2.64, "std_high": 3.23, "flag": "LOW", "label_ko": "Minerals" },
+    "body_fat_mass_kg":    { "value": 8.1,  "std_low": 10.1, "std_high": 15.7, "flag": "LOW", "label_ko": "Body Fat Mass" },
+    "intracellular_water_kg": 17.2,
+    "extracellular_water_kg": 10.5,
+    "ecw_tbw_ratio": { "value": 0.379, "std_low": 0.360, "std_high": 0.390, "flag": "NORMAL" },
+    "fat_free_mass_kg": 37.5,
+    "weight_kg": 45.6
+  },
+  "muscle_fat_analysis": {
+    "weight_kg":               { "value": 45.6, "std_low": 50.3, "std_high": 61.5, "percent_of_standard": 81.6, "flag": "LOW" },
+    "skeletal_muscle_mass_kg": { "value": 19.8, "std_low": 20.6, "std_high": 25.2, "percent_of_standard": 86.5, "flag": "LOW" },
+    "body_fat_mass_kg":        { "value": 8.1,  "std_low": 10.1, "std_high": 15.7, "percent_of_standard": 62.8, "flag": "LOW" },
+    "body_type": "D",
+    "body_type_label_ko": "D-shape",
+    "body_type_description_ko": "The graph is D-shaped, but weight, skeletal muscle mass, and body fat mass are all below standard. This is a relative balance within an underweight state, not an ideal body type; the shortfall in absolute amounts is the key finding.",
+    "interpretation_caution_ko": "Calling a D-shape 'ideal' is a misjudgment. Always check whether every percent-of-standard value is below 100%."
+  },
+  "obesity_analysis": {
+    "bmi":         { "value": 17.1, "unit": "kg/m²", "std_low": 18.5, "std_high": 24.9, "flag": "LOW", "label_ko": "BMI" },
+    "pbf_percent": { "value": 17.8, "unit": "%",     "std_low": 18.0, "std_high": 28.0, "flag": "LOW", "label_ko": "Percent Body Fat" },
+    "bmi_class_ko": "Underweight",
+    "bmi_class_basis": "Korean Society for the Study of Obesity criteria (below 18.5 Underweight)"
+  },
+  "segmental_lean_analysis": {
+    "right_arm": { "mass_kg": 1.86,  "std_kg": 2.10,  "percent_of_standard": 88.6, "flag": "BELOW", "label_ko": "Right Arm" },
+    "left_arm":  { "mass_kg": 1.80,  "std_kg": 2.10,  "percent_of_standard": 85.7, "flag": "BELOW", "label_ko": "Left Arm" },
+    "trunk":     { "mass_kg": 17.62, "std_kg": 19.80, "percent_of_standard": 89.0, "flag": "BELOW", "label_ko": "Trunk" },
+    "right_leg": { "mass_kg": 5.88,  "std_kg": 6.50,  "percent_of_standard": 90.5, "flag": "BELOW", "label_ko": "Right Leg" },
+    "left_leg":  { "mass_kg": 5.80,  "std_kg": 6.50,  "percent_of_standard": 89.2, "flag": "BELOW", "label_ko": "Left Leg" },
+    "balance": {
+      "upper_limb_asymmetry_percent": 3.3,
+      "lower_limb_asymmetry_percent": 1.4,
+      "left_right_balance_ko": "Good",
+      "upper_lower_balance_ko": "Balanced — but all 5 segments are below standard, indicating low whole-body muscle mass"
+    }
+  },
+  "additional_metrics": {
+    "waist_hip_ratio":    { "value": 0.72, "std_low": 0.75, "std_high": 0.85, "flag": "LOW",    "label_ko": "Waist-Hip Ratio" },
+    "visceral_fat_level": { "value": 2,    "std_low": 1,    "std_high": 9,    "flag": "NORMAL", "label_ko": "Visceral Fat Level" },
+    "basal_metabolic_rate_kcal": { "value": 1180, "formula": "21.6 × Fat-Free Mass(kg) + 370", "label_ko": "Basal Metabolic Rate" },
+    "body_composition_score": { "value": 72, "max": 100, "standard": 80, "label_ko": "Body Composition Score" }
+  },
+  "control_guide": {
+    "target_weight_kg": 48.7,
+    "target_weight_basis": "Increase fat-free mass + target body fat 23%",
+    "weight_control_kg": 3.1,
+    "muscle_control_kg": 2.4,
+    "fat_control_kg": 0.7
+  },
+  "expected_analysis_findings": [
+    "BMI 17.1 is underweight and percent body fat 17.8% is below the lower end of the female standard (18~28%) — both indicators are low",
+    "Body type is classified as D-shape, but all three indicators are below 100% of standard — it is not an 'ideal body type'",
+    "Total body water, protein, and minerals are all below standard — the fat-free mass components themselves are insufficient",
+    "All 5 segments of segmental lean mass are below standard — a whole-body muscle deficit, not a local problem",
+    "Minerals of 2.4 kg are below the lower end of standard — additional checks related to bone density are recommended",
+    "The goal is a 3.1 kg weight gain, of which 2.4 kg must come from muscle (fat gain 0.7 kg)",
+    "This is a weight-gain scenario, not a weight-loss one, so exercise and diet recommendations must point in the opposite direction from user-a"
+  ]
+}

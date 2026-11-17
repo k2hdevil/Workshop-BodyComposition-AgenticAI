@@ -1,3 +1,5 @@
+> 🌐 [English version](./en/README.md)
+
 # 체성분 분석 Agentic AI Workshop
 
 ## 내 체성분 결과지를 AI가 읽고 운동·식단을 제안하는 앱 만들기 (4시간)
