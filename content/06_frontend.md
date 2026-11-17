@@ -262,7 +262,7 @@ if uploaded is not None:
 
         # 액세스 토큰을 꺼내 Gateway 호출에 사용합니다
         # TODO ④: 노출된 액세스 토큰을 꺼냅니다
-        access_token = st.user.get("________")
+        access_token = st.user.tokens["________"]
         extracted = extract_via_gateway(s3_key, access_token)
 
     if extracted.get("status") not in ("OK", "VALIDATION_FAILED"):
@@ -561,6 +561,7 @@ aws ecs update-express-gateway-service \
 |------|------|------|
 | 로그인 후 redirect_uri mismatch | 콜백 URL 불일치 | Cognito App Client 콜백과 `redirect_uri` 를 `/oauth2callback` 로 일치 |
 | 토큰을 꺼낼 수 없음 | `expose_tokens` 누락 | `secrets.toml` 에 `expose_tokens = ["access"]` 추가 |
+| `has_token` 이 `false`, 또는 토큰이 `None` | 토큰을 `st.user.get("access")` 로 꺼냄. 노출된 토큰은 `st.user.tokens` 안에 있음 | `st.user.tokens["access"]` 로 꺼냅니다. 그래도 비어 있으면 `expose_tokens` 설정 후 이미지 재빌드·재배포하고 로그아웃 후 다시 로그인 |
 | Gateway 호출 403 | ID 토큰 사용 | 액세스 토큰을 넘김. 그래도 실패 시 Runtime 경유로 우회 |
 | `st.login` 이 없음 | Streamlit 버전 낮음 | Streamlit 1.42+ 로 업그레이드 |
 | 로그인 버튼이 CloudFront Not Found 로 이동 | 로컬 환경 한계 | 정상. 실제 Cognito 로그인은 ECS 배포(Step 5) 후 HTTPS URL 에서 테스트하세요 |
@@ -610,7 +611,7 @@ aws ecs update-express-gateway-service \
 expose_tokens = ["access"]
 ```
 
-Gateway 는 액세스 토큰을 요구합니다. 기본값은 아무 토큰도 노출하지 않으므로 명시해야 합니다.
+Gateway 는 액세스 토큰을 요구합니다(ID 토큰은 403). 기본값은 아무 토큰도 노출하지 않으므로 명시해야 합니다.
 
 **TODO ② — 로그인 시작**
 
@@ -632,10 +633,10 @@ Gateway 추출 결과(`measurement.get("name")`)로 얻은 결과지 이름을 �
 **TODO ④ — 액세스 토큰 추출**
 
 ```python
-access_token = st.user.get("access")
+access_token = st.user.tokens["access"]
 ```
 
-`expose_tokens` 에 노출한 키 이름(`access`)으로 토큰을 꺼냅니다.
+노출한 토큰은 `st.user` 의 최상위 키가 아니라 **`st.user.tokens`** 안에 들어 있습니다. `expose_tokens` 에 넣은 이름(`access`)을 키로 꺼냅니다. `st.user.get("access")` 로 꺼내면 항상 `None` 이라 `has_token` 이 `false` 로 나옵니다.
 
 **TODO ⑤ — 컨테이너 포트**
 
